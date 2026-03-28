@@ -224,6 +224,13 @@ func (u *UI) createAgentUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	slug := strings.ToLower(strings.ReplaceAll(name, " ", "-"))
+
+	// Check for slug collision
+	if _, err := u.db.GetAgentBySlug(slug); err == nil {
+		http.Error(w, fmt.Sprintf("An agent with the name %q already exists", name), http.StatusConflict)
+		return
+	}
+
 	agent := &models.Agent{
 		ID:            uuid.New().String(),
 		Name:          name,
@@ -381,13 +388,13 @@ func (u *UI) RunStdout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/html")
+
 	// If run is finished, send 286 to tell HTMX to stop polling
 	if run.Status != models.RunStatusRunning {
 		w.Header().Set("HX-Trigger", "run-complete")
 		w.WriteHeader(286)
 	}
-
-	w.Header().Set("Content-Type", "text/html")
 	fmt.Fprint(w, formatStreamJSON(run.Stdout, run.Status))
 }
 

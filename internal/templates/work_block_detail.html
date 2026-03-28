@@ -74,7 +74,7 @@
           {{end}}
 
           {{if eq .Block.Status "ready"}}
-          <form method="POST" action="/work-blocks/{{.Block.ID}}">
+          <form method="POST" action="/work-blocks/{{.Block.ID}}" onsubmit="return confirm('Are you sure you want to ship this work block?')">
             <input type="hidden" name="action" value="ship">
             <button type="submit" class="w-full px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors">Ship</button>
           </form>
@@ -85,7 +85,7 @@
           {{end}}
 
           {{if ne .Block.Status "shipped"}}{{if ne .Block.Status "cancelled"}}
-          <form method="POST" action="/work-blocks/{{.Block.ID}}">
+          <form method="POST" action="/work-blocks/{{.Block.ID}}" onsubmit="return confirm('Are you sure you want to cancel this work block?')">
             <input type="hidden" name="action" value="cancel">
             <button type="submit" class="w-full px-3 py-1.5 text-sm text-red-400 hover:text-red-300 border border-zinc-700 hover:border-red-800 rounded transition-colors">Cancel</button>
           </form>

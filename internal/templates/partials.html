@@ -81,7 +81,7 @@ details[open] .chev { transform: rotate(90deg); }
     </button>
     <!-- Mobile overlay -->
     <div id="mobile-nav-overlay" class="md:hidden fixed inset-0 bg-black/50 z-40 hidden" onclick="closeMobileNav()"></div>
-    <nav id="sidebar"
+    <nav id="sidebar" aria-label="Main navigation"
       class="w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 transition-transform duration-200">
       <div class="px-4 py-5 border-b border-zinc-800 flex items-center justify-between">
         <div>
@@ -96,7 +96,7 @@ details[open] .chev { transform: rotate(90deg); }
       <div class="flex-1 py-3 px-2 space-y-0.5">
         <a href="/dashboard"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" /></svg>
@@ -104,7 +104,7 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/issues"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -112,7 +112,7 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/work-blocks"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
@@ -120,7 +120,7 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/agents"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -150,6 +150,7 @@ details[open] .chev { transform: rotate(90deg); }
       <div id="palette-panel"
         class="palette-panel relative mx-auto mt-24 w-full max-w-lg bg-zinc-900 rounded-lg border border-zinc-700 shadow-2xl overflow-hidden">
         <input id="palette-input" type="text"
+          aria-label="Search issues and agents"
           placeholder="Search issues and agents..."
           class="w-full px-4 py-3 bg-transparent text-zinc-100 text-sm outline-none border-b border-zinc-800 placeholder:text-zinc-500 focus-ring"
           oninput="searchPalette(this.value)" onkeydown="paletteNav(event)">
@@ -202,7 +203,9 @@ function dismissToast(el) {
 }
 
 /* Command palette */
+let paletteTrigger = null;
 function openPalette() {
+  paletteTrigger = document.activeElement;
   const p = document.getElementById('palette');
   p.classList.remove('hidden');
   document.getElementById('palette-input').focus();
@@ -219,6 +222,8 @@ function closePalette() {
   panel.addEventListener('animationend', () => {
     p.classList.add('hidden');
     panel.style.animation = '';
+    if (paletteTrigger && paletteTrigger.focus) paletteTrigger.focus();
+    paletteTrigger = null;
   }, { once: true });
 }
 function togglePalette() {
@@ -310,6 +315,33 @@ if (!document.getElementById('toast-progress-style')) {
   s.textContent = '@keyframes shrink { from { width: 100%; } to { width: 0%; } }';
   document.head.appendChild(s);
 }
+
+/* A11Y: Mark active nav link with aria-current */
+(function() {
+  const path = window.location.pathname;
+  document.querySelectorAll('#sidebar a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (path === href || (href !== '/dashboard' && path.startsWith(href))) {
+      a.setAttribute('aria-current', 'page');
+      a.classList.add('bg-zinc-800', 'text-zinc-200');
+    }
+  });
+})();
+
+/* UX: Flash messages from URL params */
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const flash = params.get('flash');
+  const msg = params.get('msg');
+  if (flash && msg) {
+    showToast(flash === 'error' ? 'Error' : 'Success', msg);
+    params.delete('flash');
+    params.delete('msg');
+    const clean = params.toString();
+    const url = window.location.pathname + (clean ? '?' + clean : '');
+    window.history.replaceState({}, '', url);
+  }
+})();
 </script>
   </body>
 </html>

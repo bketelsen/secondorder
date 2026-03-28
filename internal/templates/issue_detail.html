@@ -98,7 +98,7 @@
         <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
           <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Status</div>
           <form method="POST" action="/issues/{{.Issue.Key}}">
-            <select name="status" onchange="this.form.submit()" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+            <select name="status" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
               <option value="todo" {{if eq .Issue.Status "todo"}}selected{{end}}>Todo</option>
               <option value="in_progress" {{if eq .Issue.Status "in_progress"}}selected{{end}}>In Progress</option>
               <option value="in_review" {{if eq .Issue.Status "in_review"}}selected{{end}}>In Review</option>
@@ -106,6 +106,7 @@
               <option value="blocked" {{if eq .Issue.Status "blocked"}}selected{{end}}>Blocked</option>
               <option value="cancelled" {{if eq .Issue.Status "cancelled"}}selected{{end}}>Cancelled</option>
             </select>
+            <button type="submit" class="mt-1.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium bg-zinc-700 text-zinc-200 hover:bg-zinc-600 active:scale-[0.97] transition-all">Update</button>
           </form>
         </div>
 
@@ -147,7 +148,7 @@
               Restart
             </button>
           </form>
-          <form method="POST" action="/issues/{{.Issue.Key}}">
+          <form method="POST" action="/issues/{{.Issue.Key}}" onsubmit="return confirm('Are you sure you want to cancel this issue?')">
             <input type="hidden" name="action" value="cancel">
             <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:bg-red-950/40 hover:border-red-800/50 hover:text-red-400 active:scale-[0.97] text-zinc-400 text-xs px-3 py-2 rounded-md transition-all">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
