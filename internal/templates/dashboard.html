@@ -68,7 +68,7 @@
             <span class="text-[13px] text-zinc-200 flex-1 truncate group-hover:text-zinc-100" title="{{.Title}}">{{.Title}}</span>
             {{if gt .Priority 0}}<span class="text-[11px] {{priorityColor .Priority}} shrink-0">{{priorityLabel .Priority}}</span>{{end}}
             {{if .AssigneeName}}<span class="text-[11px] text-zinc-500 shrink-0">{{.AssigneeName}}</span>{{end}}
-            <span class="text-[11px] text-zinc-600 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
+            <span class="text-[11px] text-zinc-500 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
           </a>
           {{else}}
           <div class="px-4 py-10 text-center text-sm text-zinc-500">No issues yet. Create one to get started.</div>

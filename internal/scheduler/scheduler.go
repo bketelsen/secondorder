@@ -258,7 +258,7 @@ func (s *Scheduler) execClaude(ctx context.Context, agent *models.Agent, apiKey,
 		fmt.Sprintf("THELASTORG_API_URL=http://localhost:%d", s.port),
 		fmt.Sprintf("THELASTORG_ISSUE_KEY=%s", issueKey),
 		fmt.Sprintf("THELASTORG_ARTIFACT_DOCS=%s", filepath.Join(agent.WorkingDir, "artifact-docs")),
-		fmt.Sprintf("TLO_API_KEY=%s", apiKey),
+		fmt.Sprintf("THELASTORG_API_KEY=%s", apiKey),
 	)
 
 	// Use liveWriter to stream stdout to DB
@@ -448,7 +448,7 @@ const workerRules = `RULES:
 - Always checkout the issue first, then do the work, then update status.
 - Write any documentation to the artifact-docs/ folder.`
 
-const workerAPIRef = `TLO API (Authorization: Bearer $TLO_API_KEY):
+const workerAPIRef = `TLO API (Authorization: Bearer $THELASTORG_API_KEY):
   GET    $THELASTORG_API_URL/api/v1/inbox                              - your assigned issues
   GET    $THELASTORG_API_URL/api/v1/issues/{key}                       - issue detail + comments
   POST   $THELASTORG_API_URL/api/v1/issues/{key}/checkout              - claim issue
@@ -469,7 +469,7 @@ const ceoRules = `RULES:
 - To start new work, propose a work block first. A human must approve it before it becomes active.
 - Only one work block can be active or proposed at a time.`
 
-const ceoAPIRef = `TLO API (Authorization: Bearer $TLO_API_KEY):
+const ceoAPIRef = `TLO API (Authorization: Bearer $THELASTORG_API_KEY):
   GET    $THELASTORG_API_URL/api/v1/inbox                              - your assigned issues
   GET    $THELASTORG_API_URL/api/v1/issues/{key}                       - issue detail + comments
   PATCH  $THELASTORG_API_URL/api/v1/issues/{key}                       - update status + comment

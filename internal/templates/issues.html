@@ -15,24 +15,24 @@
     <div id="new-issue" class="hidden mb-5">
       <form method="POST" action="/issues" class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-5 space-y-4">
         <div>
-          <label class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Title</label>
-          <input name="title" type="text" required placeholder="What needs to be done?" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+          <label for="issue-title" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Title</label>
+          <input id="issue-title" name="title" type="text" required placeholder="What needs to be done?" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
         </div>
         <div>
-          <label class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Description</label>
-          <textarea name="description" rows="3" placeholder="Add details..." class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-shadow"></textarea>
+          <label for="issue-description" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Description</label>
+          <textarea id="issue-description" name="description" rows="3" placeholder="Add details..." class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-shadow"></textarea>
         </div>
         <div class="flex items-end gap-3">
           <div class="flex-1">
-            <label class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Assignee</label>
-            <select name="assignee_slug" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500">
+            <label for="issue-assignee" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Assignee</label>
+            <select id="issue-assignee" name="assignee_slug" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500">
               <option value="">Auto (CEO)</option>
               {{range .Agents}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}
             </select>
           </div>
           <div class="w-36">
-            <label class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Priority</label>
-            <select name="priority" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500">
+            <label for="issue-priority" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Priority</label>
+            <select id="issue-priority" name="priority" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500">
               <option value="0">None</option>
               <option value="1">Low</option>
               <option value="2">Medium</option>
@@ -63,11 +63,11 @@
         <span class="{{statusColor .Status}} inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0">{{statusIcon .Status}}</span>
         <span class="font-mono text-xs text-zinc-500 w-14 shrink-0 group-hover:text-indigo-400 transition-colors">{{.Key}}</span>
         {{if gt .Priority 0}}<span class="text-[11px] {{priorityColor .Priority}} shrink-0">{{priorityLabel .Priority}}</span>{{end}}
-        <span class="text-[13px] text-zinc-200 flex-1 truncate">{{.Title}}</span>
-        {{if .ParentIssueKey}}<span class="text-[11px] text-zinc-600 font-mono shrink-0">^{{deref .ParentIssueKey}}</span>{{end}}
+        <span class="text-[13px] text-zinc-200 flex-1 truncate" title="{{.Title}}">{{.Title}}</span>
+        {{if .ParentIssueKey}}<span class="text-[11px] text-zinc-500 font-mono shrink-0">^{{deref .ParentIssueKey}}</span>{{end}}
         {{if .AssigneeName}}<span class="text-[11px] text-zinc-500 bg-zinc-800/80 px-2 py-0.5 rounded shrink-0">{{.AssigneeName}}</span>{{end}}
         <span class="px-2 py-0.5 rounded text-[11px] font-medium {{statusColor .Status}} shrink-0">{{.Status}}</span>
-        <span class="text-[11px] text-zinc-600 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
+        <span class="text-[11px] text-zinc-500 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
       </a>
       {{else}}
       <div class="px-4 py-16 text-center">

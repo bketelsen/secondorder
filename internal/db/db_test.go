@@ -698,16 +698,10 @@ func TestCostAndUsage(t *testing.T) {
 	r := &models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusCompleted}
 	d.CreateRun(r)
 
-	e := &models.CostEvent{
-		RunID:        r.ID,
-		AgentID:      a.ID,
-		InputTokens:  1000,
-		OutputTokens: 500,
-		TotalCostUSD: 0.05,
-	}
-	if err := d.CreateCostEvent(e); err != nil {
-		t.Fatalf("create cost: %v", err)
-	}
+	// Insert with UTC timestamp so DATE('now') matches
+	d.Exec(`INSERT INTO cost_events (id, run_id, agent_id, input_tokens, output_tokens, total_cost_usd, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+		"ce1", r.ID, a.ID, 1000, 500, 0.05)
 
 	todayTokens, todayCost, totalTokens, totalCost, err := d.GetAgentUsage(a.ID)
 	if err != nil {
@@ -719,7 +713,6 @@ func TestCostAndUsage(t *testing.T) {
 	if totalCost != 0.05 {
 		t.Errorf("total cost = %f, want 0.05", totalCost)
 	}
-	// Today's values should match total (just created)
 	if todayTokens != 1500 {
 		t.Errorf("today tokens = %d, want 1500", todayTokens)
 	}
@@ -742,13 +735,15 @@ func TestIsAgentOverBudget(t *testing.T) {
 		t.Error("expected not over budget with no policy")
 	}
 
-	// Add policy and cost event
+	// Add policy and cost event with UTC timestamps
 	d.Exec(`INSERT INTO budget_policies (id, agent_id, daily_token_limit, daily_cost_limit, active, created_at)
 		VALUES (?, ?, ?, ?, 1, datetime('now'))`, "bp1", a.ID, 1000, 0.10)
 
 	r := &models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusCompleted}
 	d.CreateRun(r)
-	d.CreateCostEvent(&models.CostEvent{RunID: r.ID, AgentID: a.ID, InputTokens: 600, OutputTokens: 500, TotalCostUSD: 0.05})
+	d.Exec(`INSERT INTO cost_events (id, run_id, agent_id, input_tokens, output_tokens, total_cost_usd, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+		"ce-budget", r.ID, a.ID, 600, 500, 0.05)
 
 	over2, err := d.IsAgentOverBudget(a.ID)
 	if err != nil {
@@ -765,7 +760,10 @@ func TestGetTotalCostToday(t *testing.T) {
 	d.CreateAgent(a)
 	r := &models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusCompleted}
 	d.CreateRun(r)
-	d.CreateCostEvent(&models.CostEvent{RunID: r.ID, AgentID: a.ID, TotalCostUSD: 1.23})
+	// Insert with UTC timestamp so DATE('now') matches
+	d.Exec(`INSERT INTO cost_events (id, run_id, agent_id, input_tokens, output_tokens, total_cost_usd, created_at)
+		VALUES (?, ?, ?, 0, 0, ?, datetime('now'))`,
+		"ce-today", r.ID, a.ID, 1.23)
 
 	cost, err := d.GetTotalCostToday()
 	if err != nil {
