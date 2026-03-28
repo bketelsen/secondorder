@@ -32,11 +32,7 @@ This isn't prompt engineering. It's agents building institutional knowledge -- t
 
 ---
 
-# thelastorg: Technical Plan
-
-## Bottom Line Up Front
-
-**thelastorg is a single-binary AI agent management platform built with Go + HTMX + templ + SQLite, providing Linear-style project management for autonomous AI agents with built-in cost controls, execution isolation, and full audit trails.** Target deployment: zero-ops single binary with embedded database, no external dependencies, sub-second startup. The architecture combines server-rendered HTML (HTMX + templ) with a pure-Go SQLite driver (modernc.org/sqlite) for a deployment experience that's `go build && ./thelastorg` -- nothing else.
+**thelastorg is a single-binary AI agent management platform built with Go + HTMX + Tailwind CSS + SQLite, providing Linear-style project management for autonomous AI agents with built-in cost controls, work block coordination, and full audit trails.** Target deployment: zero-ops single binary with embedded database, no external dependencies, sub-second startup. The architecture combines server-rendered HTML (Go html/template + HTMX) with a pure-Go SQLite driver (modernc.org/sqlite) for a deployment experience that's `go build && ./thelastorg` -- nothing else.
 
 **Why it matters**: Organizations running multiple AI agents across projects face scattered terminals, no cost visibility, no audit trail, and no coordination layer. thelastorg consolidates agent management, issue tracking, execution monitoring, and budget enforcement into one dashboard. Think of it as Linear meets agent orchestration -- a command center where humans assign work, agents execute, and everything is tracked.
 
@@ -158,40 +154,45 @@ Current state forces you to:
 thelastorg's architecture prioritizes operational simplicity -- every component compiles into one binary, runs without external services, and serves a full-featured UI.
 
 ```
-cmd/thelastorg/main.go        Entry point, CLI flags, template loading, server startup
+cmd/thelastorg/
+  main.go                      Entry point, env config, route wiring, graceful shutdown
+  templates/startup.json       Default org bootstrap template (CEO + 5 agents)
 internal/
-  handlers/                    HTTP handlers + HTMX partials + REST API
-    handlers.go                Router setup, middleware, auth
-    pages.go                   Page rendering (issues, agents, dashboard)
-    pages_extended.go          Extended pages (routines, workspaces, costs, secrets)
-    api.go                     REST API (JSON, API key auth)
-    render.go                  Template rendering helpers
-  templates/                   templ components (compiled to type-safe Go)
-    layout.templ               Main layout, navigation, sidebar
-    dashboard.templ            Dashboard summary, charts, activity
-    issues.templ               Issue board, detail, comments, filters
-    agents.templ               Agent roster, config, status, runs
-    pages.templ                Goals, approvals, extended views
-    extended.templ             Routines, workspaces, costs, skills
-    fragments.templ            Reusable HTMX partial templates
-  models/                      Data types (25+ entity types)
-    models.go                  Core entities (Agent, Issue, Run, Comment)
-    extended.go                Extended entities (Routine, Budget, Workspace)
-  db/                          SQLite queries + migrations
-    db.go                      Connection, migration runner, transaction helpers
-    queries.go                 CRUD for core entities
-    queries_extended.go        CRUD for routines, workspaces, budgets, secrets
+  handlers/
+    ui.go                      HTTP handlers for web UI (dashboard, issues, agents, work-blocks, runs)
+    api.go                     REST API endpoints with API key auth middleware
+    sse.go                     Server-Sent Events hub for real-time broadcasts
+    context.go                 Context helpers for agent extraction
+  templates/
+    templates.go               Template parser with 70+ template functions (timeAgo, statusColor, formatCost, etc.)
+    partials.html              Shared HTML partials (head, nav, foot) with animations, keyboard shortcuts
+    dashboard.html             Stats, active work block, recent issues, agents sidebar
+    issues.html                Issue list with filters and creation form
+    issue_detail.html          Single issue view with comments, status changes, approval flow
+    agents.html                Agent registry and management
+    agent_detail.html          Agent config, heartbeat settings, API keys, run history
+    work_blocks.html           Work block lifecycle (proposed -> active -> ready -> shipped)
+    work_block_detail.html     Block details, attached issues, approvals
+    run_detail.html            Run output, token usage, cost breakdown
+  models/
+    models.go                  Data types: Agent, Issue, Run, Comment, Approval, APIKey, Label, CostEvent, BudgetPolicy, WorkBlock, etc.
+  db/
+    db.go                      Connection, migration runner
+    queries.go                 200+ query functions covering full CRUD on all entities
     migrations/
-      001_initial.sql          45+ tables, indexes, constraints
-      002_routines_workspaces.sql  Automation and workspace isolation
-  scheduler/                   Background agent dispatch
-    scheduler.go               Heartbeat loop, goroutine management, signal handling
-static/                        CSS + JS (embedded via embed.FS)
+      001_init.sql             17 tables, indexes, constraints
+      002_work_blocks.sql      Work block lifecycle indexes
+  scheduler/
+    scheduler.go               Event-driven agent spawning, heartbeat loop, API key provisioning
+  telegram/
+    bot.go                     Telegram bot polling for work block approvals
+archetypes/                    21 agent role definitions (CEO, backend, frontend, architect, etc.)
+static/                        CSS + JS served via http.FileServer
 ```
 
-**Single binary. No external dependencies at runtime.** SQLite database file + optional data directory for attachments. The Go compiler embeds all templates, static assets, and starter blueprints into the binary at build time.
+**Single binary. No external dependencies at runtime.** SQLite database file is the only artifact. Templates and static assets served from the filesystem.
 
-## Database Schema: 45+ Tables for Full Agent Lifecycle
+## Database Schema: 17 Tables for Full Agent Lifecycle
 
 The schema covers the complete agent lifecycle from registration through execution to cost reconciliation.
 
@@ -199,188 +200,185 @@ The schema covers the complete agent lifecycle from registration through executi
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `agents` | AI agent configuration | name, model, adapter, status, working_dir, instructions, reports_to |
-| `issues` | Work items | title, status, priority, assignee_id, project_id, parent_id, key |
-| `runs` | Execution records | agent_id, issue_id, stdout, tokens_in/out/cached, cost, started_at/ended_at |
-| `comments` | Issue discussions | body, author_type, author_id, run_id |
-| `projects` | Organizational groupings | name, slug, description |
-| `goals` | Company objectives | title, status, target_date |
+| `agents` | AI agent configuration | name, slug, archetype_slug, model, working_dir, max_turns, heartbeat_enabled, reports_to, review_agent_id |
+| `issues` | Work items | key, title, status, priority, assignee_agent_id, parent_issue_key, work_block_id |
+| `runs` | Execution records | agent_id, issue_key, mode, stdout, diff, input/output/cache tokens, total_cost_usd |
+| `comments` | Issue discussions | issue_key, agent_id, author, body |
+| `work_blocks` | Sprint-like groupings | title, goal, status (active/proposed/ready/shipped) |
 
 ### Execution & Workflows
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `routines` | Cron/webhook automation | name, agent_id, enabled, trigger_type |
-| `routine_triggers` | Trigger configuration | cron_expression, webhook_public_id |
-| `routine_runs` | Execution history | routine_id, run_id, triggered_at |
-| `execution_workspaces` | Isolation environments | type (worktree/docker/local), project_id, branch |
-| `work_products` | Agent output artifacts | issue_id, type (file/diff/url/code/report), content |
-| `issue_documents` | Versioned docs | issue_id, key, body, revision_count |
-| `task_sessions` | Agent-issue work links | agent_id, issue_id, run_id |
+| `approvals` | Human approval gates | issue_key, requested_by, reviewer_id, status (pending/approved/rejected) |
+| `run_events` | Detailed event stream | run_id, event_type, data |
+| `api_keys` | Agent authentication | agent_id, key_hash, prefix |
 
 ### Cost & Budget
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `budget_policies` | Per-agent spending limits | agent_id, monthly_cost_cap, per_run_limit, token_quota |
-| `budget_incidents` | Threshold violations | policy_id, type (warning/limit/overage), amount |
-| `quota_windows` | Rolling usage tracking | policy_id, window_start, tokens_used, cost_used |
-| `cost_events` | External billing | agent_id, model, provider, biller, amount |
-| `finance_events` | Cost reconciliation | type, entity_id, amount, metadata |
+| `budget_policies` | Per-agent spending limits | agent_id, daily_token_limit, daily_cost_limit |
+| `cost_events` | Token usage tracking | run_id, agent_id, input_tokens, output_tokens, total_cost_usd |
 
 ### Infrastructure
 
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `api_keys` | Agent authentication | agent_id, prefix_hash, key_hash, last_used_at |
-| `secrets` | Encrypted credentials | name, encrypted_value, provider, rotation_at |
-| `agent_config_revisions` | Config snapshots | agent_id, config_json, revision_number |
-| `run_events` | Detailed event stream | run_id, type (tool_use/message/error), data |
-| `activity_log` | Full audit trail | actor_type, action, entity_type, entity_id, metadata |
-| `skills` | Reusable agent capabilities | name, description, category |
+| `agent_config_revisions` | Config snapshots | agent_id, config, changed_by |
+| `activity_log` | Full audit trail | action, entity_type, entity_id, agent_id, details |
+| `skills` | Reusable agent capabilities | name, description, agent_id |
 | `labels` | Issue tags | name, color |
-| `settings` | Workspace config | key (workspace_name, issue_prefix, brand_color), value |
-| `sequences` | Auto-increment counters | name, current_value |
-| `attachments` | File metadata | issue_id, filename, content_type, size |
+| `issue_labels` | Many-to-many issue-label linking | issue_id, label_id |
+| `secrets` | Credential storage | key, value |
+| `schema_migrations` | Migration tracking | version, applied_at |
 
-## Scheduler: Heartbeat-Driven Agent Dispatch
+## Scheduler: Event-Driven Agent Dispatch
 
-The scheduler is a background goroutine that polls every 10 seconds, checking each agent's heartbeat status and dispatching work.
+The scheduler combines event-driven waking with a 5-minute heartbeat safety net.
 
-**Dispatch loop:**
-1. Query all agents where `heartbeat_enabled=true` and `status != paused`
-2. For each agent, check if already running (concurrent map with mutex protection)
-3. Check if enough time elapsed since last heartbeat (configurable interval, default 3600s)
-4. If ready, spawn goroutine: fetch assigned issue from inbox, create run record, execute agent command, capture stdout, record token usage and cost
-5. On completion, update run status, release running lock
+**Two dispatch modes:**
+1. **Event-driven:** `WakeAgent(agent, issue)` called immediately when an issue is created or assigned. Spawns agent subprocess without waiting for the heartbeat loop.
+2. **Heartbeat loop:** Runs every 5 minutes, queries agents with `heartbeat_enabled=true`, dispatches any pending work that the event-driven path missed.
 
-**Concurrency model:** `sync.WaitGroup` for goroutine lifecycle, `sync.Mutex` protecting the running-agents map, `context.Context` with cancellation for graceful shutdown on SIGTERM/SIGINT.
+**Dispatch flow:**
+1. Check if agent is already running (concurrent map with mutex protection)
+2. Provision a per-run API key (SHA256-hashed, passed as `TLO_API_KEY` env var)
+3. Create run record, spawn agent subprocess with archetype instructions and artifact-docs
+4. Capture stdout, parse token usage from CLI output, record cost
+5. On completion, update run status, broadcast SSE event, release running lock
 
-**Execution isolation:** Agents can run in git worktrees (branch-per-run isolation), Docker containers, or local filesystem. The scheduler creates the workspace before dispatch and archives it after completion.
+**Concurrency model:** `sync.Mutex` protecting the running-agents map, `context.Context` with cancellation for graceful shutdown on SIGTERM/SIGINT.
 
 **Safety controls:**
-- Execution timeout with 15-second graceful interrupt
-- Max turns limit per agent (default 300)
-- Budget check before dispatch -- skip if monthly cap exceeded
+- Configurable execution timeout per agent (default 600s)
+- Max turns limit per agent (default 50)
+- Daily budget check before dispatch -- skip if daily token/cost limit exceeded
 - Approval workflow pauses execution until human confirms
 
 ## REST API: Agent-Facing Endpoints
 
-Agents authenticate via API keys (`X-API-Key` or `Authorization: Bearer` header). Keys are SHA256-hashed with prefix-based O(1) lookup.
+Agents authenticate via API keys (`Authorization: Bearer` header). Keys are SHA256-hashed for storage and lookup.
 
 ```
-GET    /api/v1/inbox                          Pending issues assigned to authenticated agent
-GET    /api/v1/issues/{key}                   Issue details + comments + work products
-POST   /api/v1/issues                         Create new issue (agents can self-assign work)
-PATCH  /api/v1/issues/{key}                   Update status, priority, assignee
-POST   /api/v1/issues/{key}/comments          Add comment (progress updates, blockers)
-GET    /api/v1/agents/me                      Authenticated agent's own config and status
-POST   /api/v1/runs/{id}/tokens               Report token usage (input, output, cached)
-POST   /api/v1/runs/{id}/events               Log run events (tool_use, message, error)
-POST   /api/v1/approvals                      Request human approval before proceeding
-POST   /api/v1/issues/{key}/work-products     Attach artifact (file, diff, URL, code, report)
-PUT    /api/v1/issues/{key}/documents/{key}   Upsert versioned document with revision tracking
-POST   /api/v1/cost-events                    Report cost for external billing reconciliation
+GET    /api/v1/inbox                              Pending issues assigned to authenticated agent
+GET    /api/v1/issues/{key}                       Issue details + children + comments
+POST   /api/v1/issues                             Create new issue
+PATCH  /api/v1/issues/{key}                       Update status, title, description, priority
+POST   /api/v1/issues/{key}/checkout              Atomic issue checkout (prevents double-assignment)
+POST   /api/v1/issues/{key}/comments              Add comment (progress updates, blockers)
+GET    /api/v1/agents                             List all agents
+GET    /api/v1/agents/me                          Authenticated agent's own config and status
+GET    /api/v1/usage                              Token usage and cost summary
+POST   /api/v1/approvals/{id}/resolve             Approve/reject with comment
+GET    /api/v1/work-blocks                        List work blocks
+GET    /api/v1/work-blocks/{id}                   Work block details
+POST   /api/v1/work-blocks                        Create work block
+PATCH  /api/v1/work-blocks/{id}                   Update work block
+POST   /api/v1/work-blocks/{id}/issues            Assign issue to work block
+DELETE /api/v1/work-blocks/{id}/issues/{key}      Unassign issue from work block
 ```
 
-**Authentication flow:** Agent sends API key in header. Server extracts prefix (first 16 chars), looks up key record by hashed prefix, validates full key hash, resolves agent identity. `LastUsedAt` timestamp updated on each request.
+**Authentication flow:** Agent sends API key in `Authorization: Bearer` header. Server SHA256-hashes the token, looks up the key record by hash, resolves agent identity.
 
 ## Web UI: Server-Rendered HTMX Dashboard
 
-The UI is entirely server-rendered using templ (type-safe HTML templates compiled to Go) with HTMX for interactivity. No JavaScript framework, no build step for frontend, no node_modules.
+The UI is entirely server-rendered using Go's `html/template` with HTMX for interactivity and Tailwind CSS (CDN) for styling. No JavaScript framework, no build step for frontend, no node_modules.
 
 **Page routes:**
 
 | Path | Feature |
 |------|---------|
-| `/dashboard` | Summary: agent count, active runs, recent activity, cost charts |
-| `/issues` | Linear-style board with status/priority/assignee/label filtering |
-| `/issues/{key}` | Issue detail: comments, work products, documents, sub-issues |
-| `/agents` | Agent roster with status indicators (idle, running, paused, error) |
-| `/agents/{slug}` | Agent detail: config, recent runs, budget summary |
-| `/agents/{slug}/configuration` | Edit agent model, instructions, working dir, permissions |
-| `/agents/{slug}/budget` | Budget policy, quota usage, incident history |
-| `/runs/{id}` | Run detail: stdout, token usage, cost, event timeline |
-| `/costs` | Cost breakdown by model, provider, biller with date filtering |
-| `/approvals` | Pending approval requests from agents |
-| `/routines` | Cron/webhook automation management |
-| `/execution-workspaces` | Workspace isolation management |
-| `/secrets` | Encrypted secrets store |
-| `/skills` | Reusable agent capabilities library |
-| `/activity` | Full audit trail across all entities |
-| `/inbox` | Pending items requiring attention |
-| `/search` | Command palette (global search) |
-| `/org` | Workspace settings (name, issue prefix, brand color) |
-| `/export`, `/import` | Backup and migration |
-| `/events` | SSE stream for live run monitoring |
+| `/dashboard` | Summary: agent count, active work block, recent issues, agents sidebar |
+| `/issues` | Issue list with status/priority/assignee filtering and creation form |
+| `/issues/{key}` | Issue detail: comments, status changes, approval flow, sub-issues |
+| `/agents` | Agent registry and management |
+| `/agents/{slug}` | Agent detail: config, heartbeat settings, API keys, run history |
+| `/agents/{slug}/heartbeat` | Trigger agent heartbeat manually |
+| `/agents/{slug}/assign` | Assign issue to agent |
+| `/work-blocks` | Work block lifecycle (proposed -> active -> ready -> shipped) |
+| `/work-blocks/{id}` | Block details, attached issues, approvals |
+| `/runs/{id}` | Run detail: stdout, token usage, cost breakdown |
+| `/runs/{id}/stdout` | Raw run output |
+| `/search` | Global search for issues and agents |
+| `/events` | SSE stream for live updates |
 
-**HTMX patterns:** Partial page updates via `hx-get`/`hx-post` with `hx-target` for surgical DOM replacement. HTMX redirect headers enable SPA-like navigation. SSE connection pushes live run output and status changes.
+**HTMX patterns:** Partial page updates via `hx-get`/`hx-post` with `hx-target` for surgical DOM replacement. SSE connection pushes live run output and status changes.
+
+**Styling:** Dark mode (zinc-950 background), status-coded colors (blue=in_progress, amber=in_review, emerald=done, red=blocked), staggered entrance animations, skeleton shimmer loaders, command palette (Cmd+K), toast notifications.
 
 ## Tech Stack Deep Dive
 
 ### Go 1.26 -- Single Binary, Fast Compilation, Stdlib HTTP
-Go compiles to a single static binary with no runtime dependencies. The stdlib `net/http` server handles routing, middleware, and SSE without external frameworks. `embed.FS` packages templates, static assets, and starter blueprints into the binary at build time. Result: `scp` one file to a server and run it.
+Go compiles to a single static binary with no runtime dependencies. The stdlib `net/http` server with `http.ServeMux` handles routing, middleware, and SSE without external frameworks. Only 3 direct dependencies: `modernc.org/sqlite`, `google/uuid`, `sirupsen/logrus`.
 
-### templ -- Type-Safe HTML Templates
-templ compiles HTML templates to Go code at build time, providing compile-time type checking for template data. No runtime template parsing, no `interface{}` assertions, no nil pointer panics from missing template variables. Each UI component is a Go function that returns `templ.Component`, composable like React components but with zero JavaScript overhead.
+### html/template -- Server-Rendered HTML with 70+ Template Functions
+Go's standard `html/template` package with a rich function library (timeAgo, statusColor, formatCost, priorityLabel, etc.) provides server-rendered HTML. Templates are parsed from the filesystem at startup. No compile-time template generation, but runtime auto-escaping prevents XSS.
 
-### HTMX -- Server-Rendered Interactivity
+### HTMX 2.0.4 -- Server-Rendered Interactivity
 HTMX adds dynamic behavior to server-rendered HTML through HTML attributes (`hx-get`, `hx-post`, `hx-swap`, `hx-trigger`). The server returns HTML fragments, HTMX swaps them into the DOM. No JavaScript framework, no build pipeline, no client-side state management. SSE integration provides live updates for running agents without polling.
 
+### Tailwind CSS (CDN) -- Utility-First Styling
+Tailwind CSS loaded via CDN provides dark-mode styling without a build step. Custom animations (toast slide-in, skeleton shimmer, staggered entrance) defined inline.
+
 ### SQLite (modernc.org/sqlite) -- Pure Go, Zero CGO
-Pure Go SQLite implementation avoids CGO compilation complexity. No C compiler needed, cross-compilation works out of the box. WAL mode for concurrent reads, foreign key constraints, CHECK constraints on status enums. 45+ tables covering the full agent lifecycle. Migrations run automatically on startup.
+Pure Go SQLite implementation avoids CGO compilation complexity. No C compiler needed, cross-compilation works out of the box. 17 tables covering the full agent lifecycle. Migrations run automatically on startup via `schema_migrations` tracking.
 
 ### SSE -- Live Updates Without WebSockets
-Server-Sent Events provide one-way real-time updates from server to browser. Simpler than WebSockets (no handshake, automatic reconnection, works through proxies). Used for live run output streaming, agent status changes, and inbox notifications.
+Server-Sent Events provide one-way real-time updates from server to browser. Simpler than WebSockets (no handshake, automatic reconnection, works through proxies). Used for live run output streaming and agent status changes.
 
 ## Configuration
 
-| Flag | Env Var | Default | Description |
-|------|---------|---------|-------------|
-| `-p, --port` | `PORT` | `3100` | HTTP listen port |
-| `-d, --db` | `DB_PATH` | `./thelastorg.db` | SQLite database path |
-| `--data-dir` | -- | `./data` | Attachments directory |
-| `-t, --template` | -- | -- | Apply starter template on launch |
-| `-l, --list-templates` | -- | -- | List available templates |
+| Env Var | CLI Arg | Default | Description |
+|---------|---------|---------|-------------|
+| `TLO_PORT` | `[port]` (1st arg) | `8080` | HTTP listen port |
+| `TLO_DB` | -- | `tlo.db` | SQLite database path |
+| `TLO_ARCHETYPES` | -- | `archetypes` | Agent archetype definitions directory |
+| `TLO_TELEGRAM_TOKEN` | -- | -- | Telegram bot token (optional) |
+| `TLO_TELEGRAM_CHAT_ID` | -- | -- | Telegram chat ID for approvals (optional) |
 
 ## Starter Templates
 
-Pre-configured organization blueprints embedded as JSON in the binary:
+On first run (empty database), the startup template is automatically applied from `cmd/thelastorg/templates/startup.json`:
 
-- **`startup`** -- CEO, Founding Engineer, Product Lead with projects, goals, and starter issues
-- **`dev-team`** -- Engineering-focused: backend, frontend, DevOps agents with CI/CD routines
-- **`content-agency`** -- Content pipeline: writer, editor, SEO agents with weekly routines
+- **`startup`** -- CEO + 5 agents (Founding Engineer, Product Lead, Designer, QA, DevOps) with archetype assignments and model configs
 
 ```bash
-# List built-in templates
-./thelastorg --list-templates
+# Run with defaults (auto-applies startup template on empty DB)
+./thelastorg
 
-# Apply on launch
-./thelastorg --template startup
-
-# Load from filesystem
-./thelastorg --template ./my-org.json
+# Custom port
+./thelastorg 9090
 ```
 
-Templates create agents, projects, goals, issues, and routines in a single atomic operation. Safe to re-apply -- skips existing entities.
+Templates create agents in a single atomic operation. Safe to re-apply -- skips if agents already exist.
+
+## Agent Archetypes
+
+21 role definitions in the `archetypes/` directory, each a markdown file defining agent behavior:
+
+`admin`, `annoyed-customer`, `architect`, `auditor`, `backend`, `ceo`, `design-partner`, `designer`, `devops`, `finance`, `frontend`, `fullstack`, `hr`, `legal`, `marketing`, `operations`, `other`, `product`, `qa`, `sales`, `support`
+
+Each archetype provides the agent's system instructions, defining how it approaches work, what tools it uses, and how it communicates.
 
 ## Quick Start
 
 ```bash
 # Build
-go build -o thelastorg ./cmd/thelastorg
+make build
+# or: go build -o thelastorg ./cmd/thelastorg
 
-# Run (defaults: port 3100, db ./thelastorg.db)
+# Run (defaults: port 8080, db tlo.db, auto-applies startup template)
 ./thelastorg
 
-# With options
-./thelastorg --port 8080 --db /var/data/org.db --data-dir /var/data
+# Custom port
+./thelastorg 9090
 
-# Bootstrap with a starter template
-./thelastorg --template startup
+# Custom config via env
+TLO_PORT=3000 TLO_DB=/var/data/org.db ./thelastorg
 ```
 
-Open `http://localhost:3100`.
+Open `http://localhost:8080`.
 
 ## Technical Differentiators That Matter
 
@@ -486,32 +484,30 @@ Open `http://localhost:3100`.
 - Export/import for backup and migration
 - **Delivered:** Production-ready with cost controls
 
-### Phase 3.5 (Complete): Budget Enforcement, Review Loop, Telegram
+### Phase 3.5 (Complete): Budget Enforcement, Work Blocks, Telegram
 
 **Daily Token Budgets**
-- Per-agent daily token limit (set in agent config > Daily Budget)
-- Scheduler checks today's usage before each run; if exceeded, agent is paused
+- Per-agent daily token/cost limit via budget_policies table
+- Scheduler checks today's usage before each run; if exceeded, agent is skipped
 - Token usage parsed from CLI output after runs, stored as cost_events
 - Resets daily; set to 0 for unlimited
 
+**Work Blocks (Sprint-like Coordination)**
+- Group related issues into work blocks with a goal description
+- Lifecycle: proposed -> active -> ready -> shipped (or cancelled)
+- Agents can create, update, and manage work blocks via REST API
+- Issues assigned to blocks for coordinated delivery
+
 **Approval-Review Loop**
-- Agents request approval via `POST /api/v1/approvals` with `issue_key`
-- Linked issue moves to "In Review"
+- Agents request approval via the approvals table with `issue_key`
 - Reviewer determined: explicit `review_agent_id` > `reports_to` > board (UI)
-- Reviewer agent sees pending reviews in heartbeat prompt
-- Approve -> issue Done; Reject -> issue back to In Progress + comment
-- Configure reviewer per agent in config > Review dropdown
+- `POST /api/v1/approvals/{id}/resolve` -- approve/reject with comment
 
-**Telegram Approval Switch**
-- Settings > Telegram Notifications: enter bot token + chat ID
-- Set webhook: `YOUR_URL/api/v1/telegram/webhook`
-- Approval requests send Telegram message with inline Approve/Reject buttons
-- Clicking a button resolves the approval and updates the linked issue
-
-**API additions:**
-- `POST /api/v1/approvals` now accepts `issue_key`, auto-determines reviewer
-- `POST /api/v1/approvals/:id/resolve` -- approve/reject with comment
-- `POST /api/v1/telegram/webhook` -- Telegram callback handler
+**Telegram Bot (Polling-Based)**
+- Set `TLO_TELEGRAM_TOKEN` + `TLO_TELEGRAM_CHAT_ID` env vars
+- Bot polls Telegram for callback queries (no webhook needed)
+- Work block transitions (proposed->active, ready->shipped) trigger Telegram messages with inline Approve/Reject buttons
+- Clicking a button updates work block status and wakes the CEO agent
 
 ### Phase 4 (Planned): Scale & Polish
 - RBAC and multi-user access control
@@ -541,11 +537,11 @@ Open `http://localhost:3100`.
 
 ## Key Technical Decisions
 
-- **Storage:** Pure-Go SQLite (modernc.org/sqlite) over PostgreSQL -- zero-ops, embedded, cross-compiles, single file backup. WAL mode for concurrent reads.
-- **Templates:** templ over Go `html/template` -- compile-time type safety, IDE support, composable components. No runtime template parsing errors.
-- **Frontend:** HTMX over React/Vue/Svelte -- server-rendered HTML with surgical DOM updates. No JavaScript build step, no node_modules, no hydration. 14KB total JS footprint.
-- **Scheduling:** Goroutine-per-agent over queue-based -- simpler, sufficient for single-node deployment, easy to reason about. Mutex-protected running map prevents double dispatch.
-- **Auth:** API key with SHA256 hashing over JWT/OAuth -- simpler for agent-to-server authentication. Prefix-based lookup for O(1) key resolution. No token expiry management.
+- **Storage:** Pure-Go SQLite (modernc.org/sqlite v1.48.0) over PostgreSQL -- zero-ops, embedded, cross-compiles, single file backup. 17 tables with auto-migrations.
+- **Templates:** Go `html/template` with 70+ custom functions -- standard library, zero dependencies, auto-escaping for XSS safety. Runtime template parsing at startup.
+- **Frontend:** HTMX 2.0.4 + Tailwind CSS (CDN) over React/Vue/Svelte -- server-rendered HTML with surgical DOM updates. No JavaScript build step, no node_modules, no hydration.
+- **Scheduling:** Event-driven waking + 5-minute heartbeat fallback over queue-based -- simpler, sufficient for single-node deployment, easy to reason about. Mutex-protected running map prevents double dispatch.
+- **Auth:** API key with SHA256 hashing over JWT/OAuth -- simpler for agent-to-server authentication. Per-run key provisioning. No token expiry management.
 - **Serialization:** JSON for configs/metadata, raw text for stdout capture. No protobuf, no msgpack -- human readability matters for debugging agent outputs.
 
 ## Bottom Line
