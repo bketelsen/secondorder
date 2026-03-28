@@ -3,7 +3,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{if .PageTitle}}{{.PageTitle}} - The Last Org{{else}}The Last Org{{end}}</title>
+    <title>{{if .PageTitle}}{{.PageTitle}} - The Last Org{{else}}The Last
+      Org{{end}}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -77,26 +78,36 @@ details[open] .chev { transform: rotate(90deg); }
     <!-- Mobile hamburger button -->
     <button id="mobile-menu-btn" onclick="toggleMobileNav()"
       class="md:hidden fixed top-4 left-4 z-50 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      <svg class="w-5 h-5" fill="none" stroke="currentColor"
+        viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round"
+          stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
     </button>
     <!-- Mobile overlay -->
-    <div id="mobile-nav-overlay" class="md:hidden fixed inset-0 bg-black/50 z-40 hidden" onclick="closeMobileNav()"></div>
+    <div id="mobile-nav-overlay"
+      class="md:hidden fixed inset-0 bg-black/50 z-40 hidden"
+      onclick="closeMobileNav()"></div>
     <nav id="sidebar" aria-label="Main navigation"
       class="w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 transition-transform duration-200">
-      <div class="px-4 py-5 border-b border-zinc-800 flex items-center justify-between">
+      <div
+        class="px-4 py-5 border-b border-zinc-800 flex items-center justify-between">
         <div>
           <h1 class="text-sm font-semibold tracking-wide text-zinc-100">The Last
             Org</h1>
-          <p class="text-xs text-zinc-500 mt-0.5">L5 Agent</p>
+          <p class="text-xs text-zinc-500 mt-0.5">Recursive governance layer</p>
         </div>
-        <button onclick="closeMobileNav()" class="md:hidden p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+        <button onclick="closeMobileNav()"
+          class="md:hidden p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"><path stroke-linecap="round"
+              stroke-linejoin="round" stroke-width="1.5"
+              d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
       <div class="flex-1 py-3 px-2 space-y-0.5">
         <a href="/dashboard"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4" /></svg>
@@ -104,7 +115,8 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/issues"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -112,7 +124,8 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/work-blocks"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
@@ -120,11 +133,21 @@ details[open] .chev { transform: rotate(90deg); }
         </a>
         <a href="/agents"
           class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
-          <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
           Agents
+        </a>
+        <a href="/policies"
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"><path stroke-linecap="round"
+              stroke-linejoin="round" stroke-width="1.5"
+              d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          Policies
         </a>
       </div>
       <div class="px-3 py-3 border-t border-zinc-800">
@@ -146,7 +169,8 @@ details[open] .chev { transform: rotate(90deg); }
     <!-- Command palette -->
     <div id="palette" class="fixed inset-0 z-50 hidden"
       onclick="if(event.target===this)closePalette()">
-      <div id="palette-overlay" class="absolute inset-0 bg-black/60 backdrop-blur-sm palette-overlay"></div>
+      <div id="palette-overlay"
+        class="absolute inset-0 bg-black/60 backdrop-blur-sm palette-overlay"></div>
       <div id="palette-panel"
         class="palette-panel relative mx-auto mt-24 w-full max-w-lg bg-zinc-900 rounded-lg border border-zinc-700 shadow-2xl overflow-hidden">
         <input id="palette-input" type="text"

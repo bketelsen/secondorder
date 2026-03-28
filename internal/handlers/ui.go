@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,10 +23,14 @@ type UI struct {
 	wake  func(agent *models.Agent, issue *models.Issue)
 	sched interface {
 		WakeAgentHeartbeat(agent *models.Agent)
+		RunAudit(maxBlocks, maxIssues int, focus string) (string, error)
 	}
 }
 
-func NewUI(database *db.DB, sse *SSEHub, tmpl *template.Template, wake func(*models.Agent, *models.Issue), sched interface{ WakeAgentHeartbeat(*models.Agent) }) *UI {
+func NewUI(database *db.DB, sse *SSEHub, tmpl *template.Template, wake func(*models.Agent, *models.Issue), sched interface {
+	WakeAgentHeartbeat(*models.Agent)
+	RunAudit(int, int, string) (string, error)
+}) *UI {
 	return &UI{db: database, sse: sse, tmpl: tmpl, wake: wake, sched: sched}
 }
 
@@ -511,6 +517,176 @@ func (u *UI) updateWorkBlockUI(w http.ResponseWriter, r *http.Request, id string
 	}
 
 	http.Redirect(w, r, "/work-blocks/"+id, http.StatusSeeOther)
+}
+
+func (u *UI) EvolvePage(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		u.handleEvolveAction(w, r)
+		return
+	}
+
+	boardPolicies, _ := u.db.ListBoardPolicies()
+	pendingPatches, _ := u.db.ListPendingPatches()
+	auditRuns, _ := u.db.ListAuditRuns(20)
+	pendingPolicies := u.readPolicyDir("policies")
+	acceptedPolicies := u.readPolicyDir(filepath.Join("policies", "accepted"))
+	errMsg := r.URL.Query().Get("error")
+
+	u.render(w, "evolve", map[string]any{
+		"BoardPolicies":    boardPolicies,
+		"PendingPolicies":  pendingPolicies,
+		"AcceptedPolicies": acceptedPolicies,
+		"PendingPatches":   pendingPatches,
+		"AuditRuns":        auditRuns,
+		"Error":            errMsg,
+	})
+}
+
+type policyFile struct {
+	Name    string
+	Content string
+}
+
+func (u *UI) readPolicyDir(dirname string) []policyFile {
+	agents, _ := u.db.ListAgents()
+	if len(agents) == 0 {
+		return nil
+	}
+	dir := filepath.Join(agents[0].WorkingDir, "artifact-docs", dirname)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var policies []policyFile
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		content, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		policies = append(policies, policyFile{Name: e.Name(), Content: string(content)})
+	}
+	return policies
+}
+
+func (u *UI) handleEvolveAction(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	action := r.FormValue("action")
+
+	switch action {
+	case "run_audit":
+		maxBlocks := 3
+		maxIssues := 50
+		if v, err := strconv.Atoi(r.FormValue("max_blocks")); err == nil && v > 0 {
+			maxBlocks = v
+		}
+		if v, err := strconv.Atoi(r.FormValue("max_issues")); err == nil && v > 0 {
+			maxIssues = v
+		}
+		focus := r.FormValue("focus")
+		if _, err := u.sched.RunAudit(maxBlocks, maxIssues, focus); err != nil {
+			http.Redirect(w, r, "/policies?error="+err.Error(), http.StatusSeeOther)
+			return
+		}
+
+	case "add_directive":
+		directive := strings.TrimSpace(r.FormValue("directive"))
+		if directive != "" {
+			u.db.CreateBoardPolicy(&models.BoardPolicy{Directive: directive})
+		}
+
+	case "toggle_directive":
+		id := r.FormValue("policy_id")
+		if id != "" {
+			u.db.ToggleBoardPolicy(id)
+		}
+
+	case "delete_directive":
+		id := r.FormValue("policy_id")
+		if id != "" {
+			u.db.DeleteBoardPolicy(id)
+		}
+
+	case "accept_policy":
+		filename := r.FormValue("filename")
+		if filename != "" {
+			u.movePolicyFile(filename, "policies", filepath.Join("policies", "accepted"))
+		}
+
+	case "reject_policy":
+		filename := r.FormValue("filename")
+		if filename != "" {
+			u.deletePolicyFile("policies", filename)
+		}
+
+	case "approve_patch":
+		patchID := r.FormValue("patch_id")
+		if patchID != "" {
+			u.applyPatch(patchID)
+		}
+
+	case "reject_patch":
+		patchID := r.FormValue("patch_id")
+		if patchID != "" {
+			u.db.ResolvePatch(patchID, "rejected")
+		}
+	}
+
+	http.Redirect(w, r, "/policies", http.StatusSeeOther)
+}
+
+func (u *UI) applyPatch(patchID string) {
+	patch, err := u.db.GetArchetypePatch(patchID)
+	if err != nil {
+		return
+	}
+	filePath := filepath.Join("archetypes", patch.AgentSlug+".md")
+	current, _ := os.ReadFile(filePath)
+	if len(current) > 0 && patch.CurrentContent == "" {
+		patch.CurrentContent = string(current)
+	}
+	if err := os.WriteFile(filePath, []byte(patch.ProposedContent), 0644); err != nil {
+		return
+	}
+	u.db.ResolvePatch(patchID, "approved")
+}
+
+func (u *UI) writePolicy(dirname, filename, content string) {
+	agents, _ := u.db.ListAgents()
+	if len(agents) == 0 {
+		return
+	}
+	dir := filepath.Join(agents[0].WorkingDir, "artifact-docs", dirname)
+	os.MkdirAll(dir, 0755)
+	os.WriteFile(filepath.Join(dir, filename), []byte(content), 0644)
+}
+
+func (u *UI) policyBaseDir() string {
+	agents, _ := u.db.ListAgents()
+	if len(agents) == 0 {
+		return "artifact-docs"
+	}
+	return filepath.Join(agents[0].WorkingDir, "artifact-docs")
+}
+
+func (u *UI) movePolicyFile(filename, fromDir, toDir string) {
+	base := u.policyBaseDir()
+	src := filepath.Join(base, fromDir, filename)
+	dstDir := filepath.Join(base, toDir)
+	os.MkdirAll(dstDir, 0755)
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return
+	}
+	os.WriteFile(filepath.Join(dstDir, filename), content, 0644)
+	os.Remove(src)
+}
+
+func (u *UI) deletePolicyFile(dir, filename string) {
+	base := u.policyBaseDir()
+	os.Remove(filepath.Join(base, dir, filename))
 }
 
 func (u *UI) render(w http.ResponseWriter, name string, data any) {

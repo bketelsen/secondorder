@@ -521,6 +521,38 @@ func (a *API) AssignIssueToBlock(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]string{"status": "assigned"})
 }
 
+func (a *API) CreateArchetypePatch(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		AgentSlug       string `json:"agent_slug"`
+		ProposedContent string `json:"proposed_content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AgentSlug == "" || body.ProposedContent == "" {
+		jsonError(w, "agent_slug and proposed_content required", http.StatusBadRequest)
+		return
+	}
+
+	auditRunID := r.Header.Get("X-Audit-Run-ID")
+	if auditRunID == "" {
+		auditRunID = "manual"
+	}
+
+	patch := &models.ArchetypePatch{
+		AuditRunID:      auditRunID,
+		AgentSlug:       body.AgentSlug,
+		ProposedContent: body.ProposedContent,
+	}
+	if err := a.db.CreateArchetypePatch(patch); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	agent := agentFromContext(r.Context())
+	a.db.LogActivity("propose_patch", "archetype", body.AgentSlug, ptrStr(agent), "")
+
+	w.WriteHeader(http.StatusCreated)
+	jsonOK(w, patch)
+}
+
 func (a *API) UnassignIssueFromBlock(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	if err := a.db.UnassignIssueFromWorkBlock(key); err != nil {

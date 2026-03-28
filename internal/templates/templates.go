@@ -25,6 +25,7 @@ func Parse() (*template.Template, error) {
 		"run_detail.html",
 		"work_blocks.html",
 		"work_block_detail.html",
+		"evolve.html",
 	}
 
 	for _, pf := range partialFiles {

@@ -101,7 +101,7 @@ func (s *Scheduler) WakeReviewer(agentID, issueKey string) {
 	s.WakeAgent(reviewer, issue)
 }
 
-func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt string) {
+func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt string) string {
 	runID := uuid.New().String()
 
 	run := &models.Run{
@@ -118,14 +118,14 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 
 	if err := s.db.CreateRun(run); err != nil {
 		log.WithError(err).Error("scheduler: failed to create run")
-		return
+		return ""
 	}
 
 	// Provision API key
 	rawKey, err := s.provisionAPIKey(agent.ID)
 	if err != nil {
 		log.WithError(err).Error("scheduler: failed to provision API key")
-		return
+		return ""
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(agent.TimeoutSec)*time.Second)
@@ -222,6 +222,8 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			s.onRunComplete(finalRun)
 		}
 	}()
+
+	return runID
 }
 
 func (s *Scheduler) execClaude(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
@@ -398,6 +400,166 @@ func (s *Scheduler) buildCEOAPIRef() string {
 		roster += fmt.Sprintf("  %s (slug: %s, role: %s)\n", a.Name, a.Slug, a.ArchetypeSlug)
 	}
 	return fmt.Sprintf(ceoAPIRef, roster)
+}
+
+// RunAudit spawns an auditor agent to review recent work
+func (s *Scheduler) RunAudit(maxBlocks, maxIssues int, focus string) (string, error) {
+	agents, _ := s.db.ListAgents()
+	var auditor *models.Agent
+	for i := range agents {
+		if agents[i].ArchetypeSlug == "auditor" {
+			auditor = &agents[i]
+			break
+		}
+	}
+	if auditor == nil {
+		return "", fmt.Errorf("no auditor agent found -- create one with archetype 'auditor'")
+	}
+
+	ar := &models.AuditRun{}
+	if err := s.db.CreateAuditRun(ar); err != nil {
+		return "", err
+	}
+
+	prompt := s.buildAuditPrompt(maxBlocks, maxIssues, ar.ID, focus)
+
+	// Restrict auditor to artifact-docs only (no codebase access)
+	auditAgent := *auditor
+	artifactDir := filepath.Join(auditor.WorkingDir, "artifact-docs")
+	if info, err := os.Stat(artifactDir); err == nil && info.IsDir() {
+		auditAgent.WorkingDir = artifactDir
+	}
+	runID := s.spawnAgent(&auditAgent, "", "audit", prompt)
+
+	if runID != "" {
+		ar.RunID = &runID
+		s.db.Exec(`UPDATE audit_runs SET run_id=? WHERE id=?`, runID, ar.ID)
+	}
+
+	return ar.ID, nil
+}
+
+func (s *Scheduler) buildAuditPrompt(maxBlocks, maxIssues int, auditRunID, focus string) string {
+	var buf strings.Builder
+
+	buf.WriteString("AUDIT RUN - Review recent work and improve agent performance.\n\n")
+	buf.WriteString(fmt.Sprintf("AUDIT_RUN_ID: %s\n\n", auditRunID))
+
+	// Recent shipped blocks
+	blocks, _ := s.db.ListWorkBlocks()
+	shippedCount := 0
+	for _, wb := range blocks {
+		if wb.Status != "shipped" || shippedCount >= maxBlocks {
+			continue
+		}
+		shippedCount++
+		issues, _ := s.db.ListWorkBlockIssues(wb.ID)
+		stats, _ := s.db.GetWorkBlockStats(wb.ID)
+		buf.WriteString(fmt.Sprintf("SHIPPED BLOCK: %s\n  Goal: %s\n", wb.Title, wb.Goal))
+		if stats != nil {
+			buf.WriteString(fmt.Sprintf("  Issues: %d planned, %d completed, %d cancelled\n  Runs: %d, Cost: $%.4f\n",
+				stats.IssuesPlanned, stats.IssuesCompleted, stats.IssuesCancelled, stats.RunCount, stats.TotalCost))
+		}
+		for _, i := range issues {
+			runCount, _ := s.db.CountRunsForIssue(i.Key)
+			buf.WriteString(fmt.Sprintf("  - [%s] %s (status: %s, assignee: %s, runs: %d)\n",
+				i.Key, i.Title, i.Status, i.AssigneeName, runCount))
+		}
+		buf.WriteString("\n")
+	}
+
+	// Recent completed issues
+	recentIssues, _ := s.db.GetRecentCompletedIssues(maxIssues)
+	if len(recentIssues) > 0 {
+		buf.WriteString("RECENT COMPLETED ISSUES:\n")
+		for _, i := range recentIssues {
+			runCount, _ := s.db.CountRunsForIssue(i.Key)
+			buf.WriteString(fmt.Sprintf("  - [%s] %s (status: %s, assignee: %s, runs: %d)\n",
+				i.Key, i.Title, i.Status, i.AssigneeName, runCount))
+		}
+		buf.WriteString("\n")
+	}
+
+	// Current archetypes
+	agents, _ := s.db.ListAgents()
+	buf.WriteString("CURRENT AGENT ARCHETYPES:\n")
+	for _, a := range agents {
+		content, err := os.ReadFile(filepath.Join(s.archetypesDir, a.ArchetypeSlug+".md"))
+		if err != nil {
+			continue
+		}
+		buf.WriteString(fmt.Sprintf("\n--- %s (slug: %s, archetype: %s) ---\n%s\n",
+			a.Name, a.Slug, a.ArchetypeSlug, string(content)))
+	}
+
+	// Board policies from DB
+	boardPolicies, _ := s.db.GetActiveBoardPolicies()
+	if len(boardPolicies) > 0 {
+		buf.WriteString("\nBOARD DIRECTIVES (active, from human board members):\n")
+		for _, bp := range boardPolicies {
+			buf.WriteString(fmt.Sprintf("  - %s\n", bp.Directive))
+		}
+		buf.WriteString("\n")
+	}
+
+	// Accepted policies (already approved, for reconciliation)
+	acceptedDir := filepath.Join("artifact-docs", "policies", "accepted")
+	if entries, err := os.ReadDir(acceptedDir); err == nil && len(entries) > 0 {
+		buf.WriteString("ACCEPTED POLICIES (currently active, review for reconciliation):\n")
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Join(acceptedDir, e.Name()))
+			if err != nil {
+				continue
+			}
+			buf.WriteString(fmt.Sprintf("  [%s]: %s\n", e.Name(), strings.TrimSpace(string(content))))
+		}
+		buf.WriteString("\n")
+	}
+
+	if focus != "" {
+		buf.WriteString(fmt.Sprintf("\nAUDIT FOCUS:\n%s\n", focus))
+	}
+
+	buf.WriteString(fmt.Sprintf(`
+IMPORTANT: You have NO access to the project source code. You operate only on issues, agent archetypes, policies, and artifact-docs. Do NOT attempt to read or modify any source code files.
+
+INSTRUCTIONS:
+1. Review the completed work above. Look for patterns:
+   - Agents with high retry counts (many runs per issue)
+   - Agents that frequently get rejected
+   - Missing guidance in archetypes that caused problems
+   - Board directives that are not being followed
+
+2. Review accepted policies for reconciliation -- are they still relevant? Do any contradict each other or the board directives?
+
+3. Write short new policies (1-2 sentences each) to policies/.
+   Write background/rationale separately to decisions/.
+
+4. For each archetype that needs improvement, propose a patch via:
+   POST $THELASTORG_API_URL/api/v1/archetype-patches
+   Headers: Authorization: Bearer $TLO_API_KEY, X-Audit-Run-ID: %s
+   Body: {"agent_slug": "...", "proposed_content": "...full new archetype content..."}
+
+5. Create feature requests for workflow improvements you identify. Use:
+   POST $THELASTORG_API_URL/api/v1/issues
+   Body: {"title": "Feature: ...", "description": "...", "priority": 2}
+   These are improvements to the TLO system itself, not project work.
+
+6. Review artifact-docs for stale or contradictory documentation. Clean up.
+
+TLO API (Authorization: Bearer $TLO_API_KEY):
+  POST   $THELASTORG_API_URL/api/v1/archetype-patches  - propose archetype change
+  POST   $THELASTORG_API_URL/api/v1/issues              - create feature request
+  GET    $THELASTORG_API_URL/api/v1/agents              - list team
+  GET    $THELASTORG_API_URL/api/v1/work-blocks         - list work blocks
+
+BASE_URL: http://localhost:%d
+`, auditRunID, s.port))
+
+	return buf.String()
 }
 
 // StartHeartbeatLoop runs heartbeat checks on a timer (safety net)

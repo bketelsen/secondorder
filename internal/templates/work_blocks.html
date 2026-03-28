@@ -4,11 +4,55 @@
   <div class="max-w-5xl mx-auto">
 
     <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Work Blocks</h1>
-        <p class="text-[13px] text-zinc-500 mt-0.5">Shippable units of work</p>
+      <div class="flex items-center gap-3">
+        <div>
+          <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Work Blocks</h1>
+          <p class="text-[13px] text-zinc-500 mt-0.5">Shippable units of work</p>
+        </div>
+        <button onclick="document.getElementById('wb-help-modal').classList.toggle('hidden')" class="text-zinc-500 hover:text-zinc-300 transition-colors" title="What is this?">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
       </div>
       <button onclick="document.getElementById('create-form').classList.toggle('hidden')" class="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 active:scale-[0.97] text-white rounded-md transition-all">Propose Block</button>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="wb-help-modal" class="hidden fixed inset-0 z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="relative mx-auto mt-16 w-full max-w-2xl bg-zinc-900 rounded-xl border border-zinc-700 shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+          <h2 class="text-sm font-semibold text-zinc-100">How Work Blocks Work</h2>
+          <button onclick="document.getElementById('wb-help-modal').classList.add('hidden')" class="text-zinc-500 hover:text-zinc-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-4 text-sm text-zinc-300 leading-relaxed">
+          <p>A work block is a <strong class="text-zinc-100">shippable unit of work</strong> -- a group of issues that together produce something you can deploy or demo. Think of it as a goal-driven sprint without time constraints.</p>
+
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 space-y-3">
+            <div>
+              <span class="text-xs text-purple-400 font-medium">Proposed</span>
+              <p class="text-zinc-400 mt-1">You or the CEO proposes a block with a title and goal. It needs human approval to become active.</p>
+            </div>
+            <div>
+              <span class="text-xs text-blue-400 font-medium">Active</span>
+              <p class="text-zinc-400 mt-1">Only one block can be active at a time. Assign issues to it, and agents work toward the block's goal. The CEO prioritizes block issues over standalone work.</p>
+            </div>
+            <div>
+              <span class="text-xs text-amber-400 font-medium">Ready</span>
+              <p class="text-zinc-400 mt-1">When all issues are done (or the CEO marks it ready), the block awaits your review. Check the metrics, review the work, then ship or send it back.</p>
+            </div>
+            <div>
+              <span class="text-xs text-emerald-400 font-medium">Shipped</span>
+              <p class="text-zinc-400 mt-1">You approved the block for deployment. Deployment happens outside TLO -- agents produce the work, you ship it. A new block can now become active.</p>
+            </div>
+          </div>
+
+          <p class="text-zinc-500"><strong class="text-zinc-400">Key rules:</strong> One active block at a time. Blocks are optional -- issues work fine without them. No time boxing -- a block is done when all its issues are done. The CEO can assign and unassign issues from the active block.</p>
+
+          <p class="text-zinc-500"><strong class="text-zinc-400">Metrics:</strong> Each block tracks total cost, run count, issues planned vs completed, and cycle time. Use these to understand delivery velocity and cost efficiency across iterations.</p>
+        </div>
+      </div>
     </div>
 
     <!-- Create form -->

@@ -1,0 +1,267 @@
+{{template "head" .}}
+{{template "nav" .}}
+<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8">
+  <div class="max-w-6xl mx-auto">
+
+    <div class="mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Recursive Policies</h1>
+        <p class="text-[13px] text-zinc-500 mt-0.5">Board directives, agent-suggested improvements, archetype evolution</p>
+      </div>
+      <button onclick="document.getElementById('help-modal').classList.toggle('hidden')" class="text-zinc-500 hover:text-zinc-300 transition-colors" title="What is this?">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      </button>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="hidden fixed inset-0 z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+      <div class="relative mx-auto mt-16 w-full max-w-2xl bg-zinc-900 rounded-xl border border-zinc-700 shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+          <h2 class="text-sm font-semibold text-zinc-100">Recursive Governance</h2>
+          <button onclick="document.getElementById('help-modal').classList.add('hidden')" class="text-zinc-500 hover:text-zinc-300">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="px-6 py-5 max-h-[70vh] overflow-y-auto space-y-4 text-sm text-zinc-300 leading-relaxed">
+          <p>This page implements <strong class="text-zinc-100">recursive human governance</strong> over autonomous agents. You set the rules, agents follow them, the auditor checks compliance, and the system improves over time -- always with you in control.</p>
+
+          <p>The core idea: agents do work, but they also produce feedback about what went wrong and what could be better. That feedback becomes <strong class="text-zinc-100">policy proposals</strong> that you review and approve. Each cycle tightens the rules and improves agent performance.</p>
+
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 space-y-3">
+            <div>
+              <span class="text-xs text-indigo-400 font-medium">Board Directives</span>
+              <p class="text-zinc-400 mt-1">Rules you issue as a board member. The auditor reads these and reconciles them with actual agent behavior. Toggle on/off as needed. These are your constitutional layer.</p>
+            </div>
+            <div>
+              <span class="text-xs text-amber-400 font-medium">Run Audit</span>
+              <p class="text-zinc-400 mt-1">Triggers the auditor agent to review completed work -- retry counts, rejection rates, cost patterns, archetype gaps. It produces suggested policies and proposes archetype changes.</p>
+            </div>
+            <div>
+              <span class="text-xs text-emerald-400 font-medium">Suggested Policies</span>
+              <p class="text-zinc-400 mt-1">Agent-suggested rules from audit findings. You accept or reject each one. Accepted policies are loaded by all agents automatically. Short, actionable, 1-2 sentences.</p>
+            </div>
+            <div>
+              <span class="text-xs text-purple-400 font-medium">Archetype Updates</span>
+              <p class="text-zinc-400 mt-1">Proposed changes to agent role definitions. You review a diff and approve or reject. Approved changes shape all future agent runs.</p>
+            </div>
+          </div>
+
+          <p class="text-zinc-500">The loop: you set directives &rarr; agents work &rarr; audit reviews patterns &rarr; suggests improvements &rarr; you approve or reject &rarr; agents perform better &rarr; next audit finds new patterns. Each cycle compresses organizational learning into actionable rules, with human approval at every step.</p>
+        </div>
+      </div>
+    </div>
+
+    {{if .Error}}
+    <div class="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+      <span class="text-sm text-red-400">{{.Error}}</span>
+    </div>
+    {{end}}
+
+    {{range .AuditRuns}}{{if eq .Status "running"}}
+    <div class="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-3 flex items-center gap-3">
+      <span class="w-3.5 h-3.5 border-2 border-transparent border-t-blue-400 rounded-full animate-spin"></span>
+      <span class="text-sm text-blue-400">Audit is running...</span>
+      <span class="text-xs text-zinc-500">Started {{timeAgo .CreatedAt}}</span>
+      {{if .RunID}}<a href="/runs/{{deref .RunID}}" class="text-xs text-indigo-400 hover:text-indigo-300 ml-auto">View Run</a>{{end}}
+    </div>
+    {{end}}{{end}}
+
+    <!-- Board Directives -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[13px] font-medium text-zinc-300">Board Directives</h2>
+      </div>
+
+      <!-- Add directive form (always visible, inline) -->
+      <form method="POST" action="/policies" class="flex gap-2 mb-3">
+        <input type="hidden" name="action" value="add_directive">
+        <input name="directive" type="text" required placeholder="e.g. All backend code must have error handling. Never ignore returned errors." class="flex-1 px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+        <button type="submit" class="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded transition-colors shrink-0">Add</button>
+      </form>
+
+      {{if .BoardPolicies}}
+      <div class="space-y-1">
+        {{range .BoardPolicies}}
+        <div class="flex items-center gap-3 bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-2.5 group">
+          <form method="POST" action="/policies" style="display:contents;">
+            <input type="hidden" name="action" value="toggle_directive">
+            <input type="hidden" name="policy_id" value="{{.ID}}">
+            <button type="submit" class="w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors {{if .Active}}border-indigo-500 bg-indigo-500/20{{else}}border-zinc-600 bg-transparent{{end}}" title="{{if .Active}}Disable{{else}}Enable{{end}}">
+              {{if .Active}}<svg class="w-2.5 h-2.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>{{end}}
+            </button>
+          </form>
+          <span class="text-[13px] flex-1 {{if .Active}}text-zinc-200{{else}}text-zinc-500 line-through{{end}}">{{.Directive}}</span>
+          <form method="POST" action="/policies" style="display:contents;">
+            <input type="hidden" name="action" value="delete_directive">
+            <input type="hidden" name="policy_id" value="{{.ID}}">
+            <button type="submit" class="text-zinc-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all" title="Delete">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- Left: Run Audit + History -->
+      <div class="space-y-6">
+        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-5">
+          <h2 class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-3">Run Audit</h2>
+          <form method="POST" action="/policies" class="space-y-3">
+            <input type="hidden" name="action" value="run_audit">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[11px] text-zinc-500 block mb-1">Blocks</label>
+                <input name="max_blocks" type="number" value="3" min="1" max="20" class="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+              </div>
+              <div>
+                <label class="text-[11px] text-zinc-500 block mb-1">Issues</label>
+                <input name="max_issues" type="number" value="50" min="1" max="200" class="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:border-indigo-500">
+              </div>
+            </div>
+            <div>
+              <label class="text-[11px] text-zinc-500 block mb-1">Focus (optional)</label>
+              <textarea name="focus" rows="2" placeholder="e.g. Why does the backend agent keep getting rejected?" class="w-full px-3 py-1.5 bg-zinc-900 border border-zinc-700 rounded text-sm text-zinc-200 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+            <button type="submit" class="w-full px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-md transition-colors">Run Audit</button>
+          </form>
+        </div>
+
+        <div>
+          <h2 class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-3">History</h2>
+          {{if .AuditRuns}}
+          <div class="space-y-1.5">
+            {{range .AuditRuns}}
+            <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-3 py-2.5">
+              <div class="flex items-center gap-2">
+                {{if eq .Status "running"}}
+                <span class="w-2 h-2 bg-blue-400 rounded-full animate-pulse shrink-0"></span>
+                {{else if eq .Status "completed"}}
+                <span class="w-2 h-2 bg-emerald-400 rounded-full shrink-0"></span>
+                {{else}}
+                <span class="w-2 h-2 bg-red-400 rounded-full shrink-0"></span>
+                {{end}}
+                <span class="text-xs text-zinc-400 tabular-nums">{{timeAgo .CreatedAt}}</span>
+                {{if .RunID}}<a href="/runs/{{deref .RunID}}" class="text-xs text-indigo-400 hover:text-indigo-300 ml-auto">View</a>{{end}}
+              </div>
+              {{if eq .Status "completed"}}
+              <span class="text-[11px] text-zinc-500 mt-1 block">{{.IssuesReviewed}} issues, {{.BlocksReviewed}} blocks</span>
+              {{end}}
+            </div>
+            {{end}}
+          </div>
+          {{else}}
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-3 py-6 text-center text-xs text-zinc-500">No audits yet.</div>
+          {{end}}
+        </div>
+      </div>
+
+      <!-- Right: Suggested + Accepted Policies + Archetype Patches -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- Suggested Policies (pending review) -->
+        <div>
+          <h2 class="text-[13px] font-medium text-zinc-300 mb-3">Suggested Policies</h2>
+          {{if .PendingPolicies}}
+          <div class="space-y-2">
+            {{range .PendingPolicies}}
+            <div class="bg-zinc-800/50 border border-amber-500/20 rounded-lg p-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                  <span class="text-xs text-zinc-500 font-mono">{{.Name}}</span>
+                  <p class="text-[13px] text-zinc-300 mt-1 whitespace-pre-wrap">{{.Content}}</p>
+                </div>
+                <div class="flex gap-2 shrink-0">
+                  <form method="POST" action="/policies" style="display:inline;">
+                    <input type="hidden" name="action" value="accept_policy">
+                    <input type="hidden" name="filename" value="{{.Name}}">
+                    <button type="submit" class="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors">Accept</button>
+                  </form>
+                  <form method="POST" action="/policies" style="display:inline;">
+                    <input type="hidden" name="action" value="reject_policy">
+                    <input type="hidden" name="filename" value="{{.Name}}">
+                    <button type="submit" class="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 border border-zinc-700 hover:border-red-800 rounded transition-colors">Reject</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {{end}}
+          </div>
+          {{else}}
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-8 text-center text-sm text-zinc-500">No pending suggestions. Run an audit to generate them.</div>
+          {{end}}
+        </div>
+
+        <!-- Accepted Policies -->
+        <div>
+          <h2 class="text-[13px] font-medium text-zinc-300 mb-3">Active Policies</h2>
+          {{if .AcceptedPolicies}}
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg divide-y divide-zinc-800/60 overflow-hidden">
+            {{range .AcceptedPolicies}}
+            <div class="px-4 py-2.5">
+              <span class="text-xs text-zinc-500 font-mono">{{.Name}}</span>
+              <p class="text-[13px] text-zinc-300 mt-0.5 whitespace-pre-wrap">{{.Content}}</p>
+            </div>
+            {{end}}
+          </div>
+          {{else}}
+          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-6 text-center text-sm text-zinc-500">No accepted policies yet.</div>
+          {{end}}
+        </div>
+
+        <!-- Archetype Updates -->
+        {{if .PendingPatches}}
+        <div>
+          <h2 class="text-[13px] font-medium text-zinc-300 mb-3">Archetype Updates</h2>
+          <div class="space-y-2">
+            {{range .PendingPatches}}
+            <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                  <span class="bg-purple-500/15 text-purple-400 ring-1 ring-inset ring-purple-500/25 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium">PENDING</span>
+                  <span class="text-sm font-medium text-zinc-200 font-mono">{{.AgentSlug}}.md</span>
+                </div>
+                <div class="flex gap-2">
+                  <form method="POST" action="/policies" style="display:inline;">
+                    <input type="hidden" name="action" value="approve_patch">
+                    <input type="hidden" name="patch_id" value="{{.ID}}">
+                    <button type="submit" class="px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded transition-colors">Approve</button>
+                  </form>
+                  <form method="POST" action="/policies" style="display:inline;">
+                    <input type="hidden" name="action" value="reject_patch">
+                    <input type="hidden" name="patch_id" value="{{.ID}}">
+                    <button type="submit" class="px-2.5 py-1 text-xs text-red-400 hover:text-red-300 border border-zinc-700 hover:border-red-800 rounded transition-colors">Reject</button>
+                  </form>
+                </div>
+              </div>
+              <details>
+                <summary class="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">View proposed content</summary>
+                <div class="mt-2 space-y-2">
+                  {{if .CurrentContent}}
+                  <div>
+                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Current</span>
+                    <pre class="mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-400 whitespace-pre-wrap overflow-auto" style="max-height:200px;margin:0.25rem 0 0;">{{.CurrentContent}}</pre>
+                  </div>
+                  {{end}}
+                  <div>
+                    <span class="text-[10px] text-zinc-500 uppercase tracking-wider">Proposed</span>
+                    <pre class="mt-1 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-emerald-400 whitespace-pre-wrap overflow-auto" style="max-height:200px;margin:0.25rem 0 0;">{{.ProposedContent}}</pre>
+                  </div>
+                </div>
+              </details>
+            </div>
+            {{end}}
+          </div>
+        </div>
+        {{end}}
+
+      </div>
+    </div>
+
+  </div>
+</main>
+{{template "foot" .}}

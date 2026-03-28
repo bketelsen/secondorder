@@ -133,6 +133,8 @@ func main() {
 	mux.HandleFunc("POST /work-blocks", ui.ListWorkBlocks)
 	mux.HandleFunc("GET /work-blocks/{id}", ui.WorkBlockDetail)
 	mux.HandleFunc("POST /work-blocks/{id}", ui.WorkBlockDetail)
+	mux.HandleFunc("GET /policies", ui.EvolvePage)
+	mux.HandleFunc("POST /policies", ui.EvolvePage)
 	mux.HandleFunc("GET /runs/{id}", ui.RunDetail)
 	mux.HandleFunc("GET /runs/{id}/stdout", ui.RunStdout)
 	mux.HandleFunc("GET /search", ui.SearchIssuesAndAgents)
@@ -166,6 +168,7 @@ func main() {
 	mux.HandleFunc("PATCH /api/v1/work-blocks/{id}", api.Auth(api.UpdateWorkBlock))
 	mux.HandleFunc("POST /api/v1/work-blocks/{id}/issues", api.Auth(api.AssignIssueToBlock))
 	mux.HandleFunc("DELETE /api/v1/work-blocks/{id}/issues/{key}", api.Auth(api.UnassignIssueFromBlock))
+	mux.HandleFunc("POST /api/v1/archetype-patches", api.Auth(api.CreateArchetypePatch))
 
 	// Apply org template on first run
 	applyStartupTemplate(database)

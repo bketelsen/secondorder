@@ -824,3 +824,193 @@ func (d *DB) CountRunsForIssue(issueKey string) (int, error) {
 	err := d.QueryRow(`SELECT COUNT(*) FROM runs WHERE issue_key=?`, issueKey).Scan(&count)
 	return count, err
 }
+
+// --- Audit ---
+
+func (d *DB) CreateAuditRun(ar *models.AuditRun) error {
+	if ar.ID == "" {
+		ar.ID = uuid.NewString()
+	}
+	ar.CreatedAt = time.Now()
+	ar.Status = "running"
+	_, err := d.Exec(`INSERT INTO audit_runs (id, run_id, status, issues_reviewed, blocks_reviewed, findings, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		ar.ID, ar.RunID, ar.Status, ar.IssuesReviewed, ar.BlocksReviewed, ar.Findings, ar.CreatedAt)
+	return err
+}
+
+func (d *DB) GetAuditRun(id string) (*models.AuditRun, error) {
+	ar := &models.AuditRun{}
+	err := d.QueryRow(`SELECT id, run_id, status, issues_reviewed, blocks_reviewed, findings, created_at, completed_at
+		FROM audit_runs WHERE id=?`, id).Scan(
+		&ar.ID, &ar.RunID, &ar.Status, &ar.IssuesReviewed, &ar.BlocksReviewed, &ar.Findings, &ar.CreatedAt, &ar.CompletedAt)
+	if err != nil {
+		return nil, err
+	}
+	return ar, nil
+}
+
+func (d *DB) ListAuditRuns(limit int) ([]models.AuditRun, error) {
+	query := `SELECT id, run_id, status, issues_reviewed, blocks_reviewed, findings, created_at, completed_at
+		FROM audit_runs ORDER BY created_at DESC`
+	var args []any
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+	rows, err := d.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var runs []models.AuditRun
+	for rows.Next() {
+		var ar models.AuditRun
+		if err := rows.Scan(&ar.ID, &ar.RunID, &ar.Status, &ar.IssuesReviewed, &ar.BlocksReviewed, &ar.Findings, &ar.CreatedAt, &ar.CompletedAt); err != nil {
+			return nil, err
+		}
+		runs = append(runs, ar)
+	}
+	return runs, rows.Err()
+}
+
+func (d *DB) CreateArchetypePatch(p *models.ArchetypePatch) error {
+	if p.ID == "" {
+		p.ID = uuid.NewString()
+	}
+	p.CreatedAt = time.Now()
+	if p.Status == "" {
+		p.Status = "pending"
+	}
+	_, err := d.Exec(`INSERT INTO archetype_patches (id, audit_run_id, agent_slug, current_content, proposed_content, status, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		p.ID, p.AuditRunID, p.AgentSlug, p.CurrentContent, p.ProposedContent, p.Status, p.CreatedAt)
+	return err
+}
+
+func (d *DB) ListPendingPatches() ([]models.ArchetypePatch, error) {
+	rows, err := d.Query(`SELECT id, audit_run_id, agent_slug, current_content, proposed_content, status, reviewed_at, created_at
+		FROM archetype_patches WHERE status='pending' ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPatches(rows)
+}
+
+func (d *DB) GetArchetypePatch(id string) (*models.ArchetypePatch, error) {
+	p := &models.ArchetypePatch{}
+	err := d.QueryRow(`SELECT id, audit_run_id, agent_slug, current_content, proposed_content, status, reviewed_at, created_at
+		FROM archetype_patches WHERE id=?`, id).Scan(
+		&p.ID, &p.AuditRunID, &p.AgentSlug, &p.CurrentContent, &p.ProposedContent, &p.Status, &p.ReviewedAt, &p.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (d *DB) ResolvePatch(id, status string) error {
+	now := time.Now()
+	_, err := d.Exec(`UPDATE archetype_patches SET status=?, reviewed_at=? WHERE id=?`, status, now, id)
+	return err
+}
+
+func scanPatches(rows *sql.Rows) ([]models.ArchetypePatch, error) {
+	var patches []models.ArchetypePatch
+	for rows.Next() {
+		var p models.ArchetypePatch
+		if err := rows.Scan(&p.ID, &p.AuditRunID, &p.AgentSlug, &p.CurrentContent, &p.ProposedContent, &p.Status, &p.ReviewedAt, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		patches = append(patches, p)
+	}
+	return patches, rows.Err()
+}
+
+// --- Board Policies ---
+
+func (d *DB) CreateBoardPolicy(bp *models.BoardPolicy) error {
+	if bp.ID == "" {
+		bp.ID = uuid.NewString()
+	}
+	now := time.Now()
+	bp.CreatedAt = now
+	bp.UpdatedAt = now
+	bp.Active = true
+	_, err := d.Exec(`INSERT INTO board_policies (id, directive, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+		bp.ID, bp.Directive, bp.Active, bp.CreatedAt, bp.UpdatedAt)
+	return err
+}
+
+func (d *DB) ListBoardPolicies() ([]models.BoardPolicy, error) {
+	rows, err := d.Query(`SELECT id, directive, active, created_at, updated_at FROM board_policies ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var policies []models.BoardPolicy
+	for rows.Next() {
+		var bp models.BoardPolicy
+		if err := rows.Scan(&bp.ID, &bp.Directive, &bp.Active, &bp.CreatedAt, &bp.UpdatedAt); err != nil {
+			return nil, err
+		}
+		policies = append(policies, bp)
+	}
+	return policies, rows.Err()
+}
+
+func (d *DB) ToggleBoardPolicy(id string) error {
+	now := time.Now()
+	_, err := d.Exec(`UPDATE board_policies SET active = NOT active, updated_at=? WHERE id=?`, now, id)
+	return err
+}
+
+func (d *DB) DeleteBoardPolicy(id string) error {
+	_, err := d.Exec(`DELETE FROM board_policies WHERE id=?`, id)
+	return err
+}
+
+func (d *DB) GetActiveBoardPolicies() ([]models.BoardPolicy, error) {
+	rows, err := d.Query(`SELECT id, directive, active, created_at, updated_at FROM board_policies WHERE active=1 ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var policies []models.BoardPolicy
+	for rows.Next() {
+		var bp models.BoardPolicy
+		if err := rows.Scan(&bp.ID, &bp.Directive, &bp.Active, &bp.CreatedAt, &bp.UpdatedAt); err != nil {
+			return nil, err
+		}
+		policies = append(policies, bp)
+	}
+	return policies, rows.Err()
+}
+
+func (d *DB) GetRecentCompletedIssues(limit int) ([]models.Issue, error) {
+	rows, err := d.Query(`SELECT i.id, i.key, i.title, i.description, i.status, i.priority, i.assignee_agent_id,
+		i.parent_issue_key, i.work_block_id, i.started_at, i.completed_at, i.created_at, i.updated_at,
+		COALESCE(a.name, '')
+		FROM issues i LEFT JOIN agents a ON i.assignee_agent_id = a.id
+		WHERE i.status IN ('done','cancelled')
+		ORDER BY i.completed_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []models.Issue
+	for rows.Next() {
+		var i models.Issue
+		if err := rows.Scan(&i.ID, &i.Key, &i.Title, &i.Description, &i.Status, &i.Priority, &i.AssigneeAgentID,
+			&i.ParentIssueKey, &i.WorkBlockID, &i.StartedAt, &i.CompletedAt, &i.CreatedAt, &i.UpdatedAt,
+			&i.AssigneeName); err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}

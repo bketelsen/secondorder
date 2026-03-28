@@ -205,6 +205,36 @@ type WorkBlockStats struct {
 	CycleTimeHours  float64 `json:"cycle_time_hours"`
 }
 
+type AuditRun struct {
+	ID             string     `json:"id"`
+	RunID          *string    `json:"run_id"`
+	Status         string     `json:"status"`
+	IssuesReviewed int        `json:"issues_reviewed"`
+	BlocksReviewed int        `json:"blocks_reviewed"`
+	Findings       string     `json:"findings"`
+	CreatedAt      time.Time  `json:"created_at"`
+	CompletedAt    *time.Time `json:"completed_at"`
+}
+
+type ArchetypePatch struct {
+	ID              string     `json:"id"`
+	AuditRunID      string     `json:"audit_run_id"`
+	AgentSlug       string     `json:"agent_slug"`
+	CurrentContent  string     `json:"current_content"`
+	ProposedContent string     `json:"proposed_content"`
+	Status          string     `json:"status"`
+	ReviewedAt      *time.Time `json:"reviewed_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+type BoardPolicy struct {
+	ID        string    `json:"id"`
+	Directive string    `json:"directive"`
+	Active    bool      `json:"active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type DashboardStats struct {
 	TotalAgents    int     `json:"total_agents"`
 	ActiveAgents   int     `json:"active_agents"`
