@@ -557,6 +557,8 @@ If you run 2+ AI agents and have ever lost track of costs, duplicated work, or w
 
 **The opportunity:** First purpose-built, self-hosted agent management platform that deploys in 60 seconds and scales from a side project to an engineering organization.
 
+[![RepoStars](https://repostars.dev/api/embed?repo=msoedov%2Fthelastorg&theme=sakura)](https://repostars.dev/?repos=msoedov%2Fthelastorg&theme=sakura)
+
 ## License
 
 MIT
