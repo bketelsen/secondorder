@@ -196,15 +196,37 @@
           {{end}}
         </div>
 
-        <!-- Accepted Policies -->
+        <!-- Active Policies -->
         <div>
           <h2 class="text-[13px] font-medium text-zinc-300 mb-3">Active Policies</h2>
-          {{if .AcceptedPolicies}}
-          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg divide-y divide-zinc-800/60 overflow-hidden">
+          {{if or .AcceptedPolicies .DisabledPolicies}}
+          <div class="space-y-1">
             {{range .AcceptedPolicies}}
-            <div class="px-4 py-2.5">
-              <span class="text-xs text-zinc-500 font-mono">{{.Name}}</span>
-              <p class="text-[13px] text-zinc-300 mt-0.5 whitespace-pre-wrap">{{.Content}}</p>
+            <div class="flex items-center gap-3 bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-2.5 group">
+              <form method="POST" action="/policies" style="display:contents;">
+                <input type="hidden" name="action" value="disable_policy">
+                <input type="hidden" name="filename" value="{{.Name}}">
+                <button type="submit" class="w-4 h-4 rounded border border-emerald-500 bg-emerald-500/20 shrink-0 flex items-center justify-center transition-colors" title="Disable">
+                  <svg class="w-2.5 h-2.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                </button>
+              </form>
+              <div class="flex-1 min-w-0">
+                <span class="text-xs text-zinc-500 font-mono">{{.Name}}</span>
+                <p class="text-[13px] text-zinc-200 mt-0.5 whitespace-pre-wrap">{{.Content}}</p>
+              </div>
+            </div>
+            {{end}}
+            {{range .DisabledPolicies}}
+            <div class="flex items-center gap-3 bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-2.5 group">
+              <form method="POST" action="/policies" style="display:contents;">
+                <input type="hidden" name="action" value="enable_policy">
+                <input type="hidden" name="filename" value="{{.Name}}">
+                <button type="submit" class="w-4 h-4 rounded border border-zinc-600 bg-transparent shrink-0 flex items-center justify-center transition-colors" title="Enable"></button>
+              </form>
+              <div class="flex-1 min-w-0">
+                <span class="text-xs text-zinc-600 font-mono">{{.Name}}</span>
+                <p class="text-[13px] text-zinc-500 line-through mt-0.5 whitespace-pre-wrap">{{.Content}}</p>
+              </div>
             </div>
             {{end}}
           </div>

@@ -40,4 +40,4 @@ Desktop.ini
 *.swp
 *.swo
 *~
-!cmd
+!cmd/

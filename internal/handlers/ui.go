@@ -530,12 +530,14 @@ func (u *UI) EvolvePage(w http.ResponseWriter, r *http.Request) {
 	auditRuns, _ := u.db.ListAuditRuns(20)
 	pendingPolicies := u.readPolicyDir("policies")
 	acceptedPolicies := u.readPolicyDir(filepath.Join("policies", "accepted"))
+	disabledPolicies := u.readPolicyDir(filepath.Join("policies", "disabled"))
 	errMsg := r.URL.Query().Get("error")
 
 	u.render(w, "evolve", map[string]any{
 		"BoardPolicies":    boardPolicies,
 		"PendingPolicies":  pendingPolicies,
 		"AcceptedPolicies": acceptedPolicies,
+		"DisabledPolicies": disabledPolicies,
 		"PendingPatches":   pendingPatches,
 		"AuditRuns":        auditRuns,
 		"Error":            errMsg,
@@ -607,6 +609,18 @@ func (u *UI) handleEvolveAction(w http.ResponseWriter, r *http.Request) {
 		id := r.FormValue("policy_id")
 		if id != "" {
 			u.db.DeleteBoardPolicy(id)
+		}
+
+	case "disable_policy":
+		filename := r.FormValue("filename")
+		if filename != "" {
+			u.movePolicyFile(filename, filepath.Join("policies", "accepted"), filepath.Join("policies", "disabled"))
+		}
+
+	case "enable_policy":
+		filename := r.FormValue("filename")
+		if filename != "" {
+			u.movePolicyFile(filename, filepath.Join("policies", "disabled"), filepath.Join("policies", "accepted"))
 		}
 
 	case "accept_policy":
