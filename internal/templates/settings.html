@@ -1,0 +1,88 @@
+{{template "head" .}}
+{{template "nav" .}}
+<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8">
+  <div class="max-w-3xl mx-auto">
+
+    <h1 class="text-lg font-semibold text-zinc-100 tracking-tight mb-6">Settings</h1>
+
+    {{if .Flash}}
+    <div class="mb-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3">
+      <span class="text-sm text-emerald-400">{{.Flash}}</span>
+    </div>
+    {{end}}
+
+    {{if .Error}}
+    <div class="mb-4 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
+      <span class="text-sm text-red-400">{{.Error}}</span>
+    </div>
+    {{end}}
+
+    <!-- Instance Settings -->
+    <form method="POST" action="/settings" class="mb-6">
+      <input type="hidden" name="section" value="instance">
+      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-5">
+        <h2 class="text-sm font-medium text-zinc-100 mb-4">Instance Settings</h2>
+        <div class="space-y-4">
+          <div>
+            <label for="instance_name" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Instance Name</label>
+            <input id="instance_name" name="instance_name" type="text" value="{{index .Settings "instance_name"}}" placeholder="My Org" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+          </div>
+          <div>
+            <label for="issue_prefix" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Issue Prefix</label>
+            <input id="issue_prefix" name="issue_prefix" type="text" value="{{index .Settings "issue_prefix"}}" placeholder="TLO" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow">
+            <p class="text-[11px] text-zinc-600 mt-1">Prefix used for issue keys (e.g. TLO-1, TLO-2)</p>
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium bg-indigo-600 text-white hover:bg-indigo-500 active:scale-[0.97] transition-all">Save Instance Settings</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Telegram Integration -->
+    <form method="POST" action="/settings" class="mb-6">
+      <input type="hidden" name="section" value="telegram">
+      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-5">
+        <h2 class="text-sm font-medium text-zinc-100 mb-4">Telegram Integration</h2>
+        <div class="space-y-4">
+          <div>
+            <label for="telegram_token" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Bot Token</label>
+            <input id="telegram_token" name="telegram_token" type="text" value="{{index .Settings "telegram_token"}}" placeholder="123456:ABC-DEF..." class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow font-mono">
+          </div>
+          <div>
+            <label for="telegram_chat_id" class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Chat ID</label>
+            <input id="telegram_chat_id" name="telegram_chat_id" type="text" value="{{index .Settings "telegram_chat_id"}}" placeholder="-1001234567890" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow font-mono">
+          </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+          <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium bg-indigo-600 text-white hover:bg-indigo-500 active:scale-[0.97] transition-all">Save Telegram Settings</button>
+        </div>
+      </div>
+    </form>
+
+    <!-- About -->
+    <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-5">
+      <h2 class="text-sm font-medium text-zinc-100 mb-4">About</h2>
+      <div class="space-y-2.5 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-500">App Version</span>
+          <span class="text-zinc-300 font-mono text-xs">{{.Version}}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-500">Go Version</span>
+          <span class="text-zinc-300 font-mono text-xs">{{.GoVersion}}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-500">SQLite Version</span>
+          <span class="text-zinc-300 font-mono text-xs">{{.SQLiteVersion}}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-500">GitHub</span>
+          <a href="{{.GitHubURL}}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 text-xs transition-colors">{{.GitHubURL}}</a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+{{template "foot" .}}

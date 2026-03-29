@@ -131,6 +131,19 @@ func (d *DB) CountAgents() (int, int, error) {
 
 // --- Issues ---
 
+func (d *DB) GetIssueByTitle(title string) (*models.Issue, error) {
+	i := &models.Issue{}
+	err := d.QueryRow(`SELECT id, key, title, description, status, priority, assignee_agent_id,
+		parent_issue_key, work_block_id, started_at, completed_at, created_at, updated_at
+		FROM issues WHERE LOWER(title) = LOWER(?)`, title).Scan(
+		&i.ID, &i.Key, &i.Title, &i.Description, &i.Status, &i.Priority, &i.AssigneeAgentID,
+		&i.ParentIssueKey, &i.WorkBlockID, &i.StartedAt, &i.CompletedAt, &i.CreatedAt, &i.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return i, nil
+}
+
 func (d *DB) CreateIssue(i *models.Issue) error {
 	if i.ID == "" {
 		i.ID = uuid.NewString()
@@ -174,6 +187,38 @@ func (d *DB) ListIssues(status string, limit int) ([]models.Issue, error) {
 		args = append(args, status)
 	}
 	query += " ORDER BY i.priority DESC, i.created_at DESC"
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := d.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []models.Issue
+	for rows.Next() {
+		var i models.Issue
+		if err := rows.Scan(&i.ID, &i.Key, &i.Title, &i.Description, &i.Status, &i.Priority, &i.AssigneeAgentID,
+			&i.ParentIssueKey, &i.WorkBlockID, &i.StartedAt, &i.CompletedAt, &i.CreatedAt, &i.UpdatedAt,
+			&i.AssigneeName); err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}
+
+func (d *DB) GetRecentIssues(limit int) ([]models.Issue, error) {
+	query := `SELECT i.id, i.key, i.title, i.description, i.status, i.priority, i.assignee_agent_id,
+		i.parent_issue_key, i.work_block_id, i.started_at, i.completed_at, i.created_at, i.updated_at,
+		COALESCE(a.name, '')
+		FROM issues i LEFT JOIN agents a ON i.assignee_agent_id = a.id
+		ORDER BY i.updated_at DESC`
+
+	var args []any
 	if limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, limit)
@@ -1013,4 +1058,38 @@ func (d *DB) GetRecentCompletedIssues(limit int) ([]models.Issue, error) {
 		issues = append(issues, i)
 	}
 	return issues, rows.Err()
+}
+
+// --------------- Settings ---------------
+
+func (d *DB) GetSetting(key string) (string, error) {
+	var value string
+	err := d.QueryRow("SELECT value FROM settings WHERE key = ?", key).Scan(&value)
+	return value, err
+}
+
+func (d *DB) SetSetting(key, value string) error {
+	_, err := d.Exec(
+		"INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+		key, value,
+	)
+	return err
+}
+
+func (d *DB) GetAllSettings() (map[string]string, error) {
+	rows, err := d.Query("SELECT key, value FROM settings")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	settings := make(map[string]string)
+	for rows.Next() {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
+			return nil, err
+		}
+		settings[k] = v
+	}
+	return settings, rows.Err()
 }

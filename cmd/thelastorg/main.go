@@ -135,6 +135,8 @@ func main() {
 	mux.HandleFunc("POST /work-blocks/{id}", ui.WorkBlockDetail)
 	mux.HandleFunc("GET /policies", ui.EvolvePage)
 	mux.HandleFunc("POST /policies", ui.EvolvePage)
+	mux.HandleFunc("GET /settings", ui.Settings)
+	mux.HandleFunc("POST /settings", ui.Settings)
 	mux.HandleFunc("GET /runs/{id}", ui.RunDetail)
 	mux.HandleFunc("GET /runs/{id}/stdout", ui.RunStdout)
 	mux.HandleFunc("GET /search", ui.SearchIssuesAndAgents)

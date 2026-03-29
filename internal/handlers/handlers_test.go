@@ -8,11 +8,13 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/msoedov/thelastorg/internal/db"
 	"github.com/msoedov/thelastorg/internal/models"
+	"github.com/msoedov/thelastorg/internal/templates"
 )
 
 func testDB(t *testing.T) *db.DB {
@@ -222,6 +224,285 @@ func TestSSEServeHTTP(t *testing.T) {
 	body := w.Body.String()
 	if body == "" {
 		t.Error("expected keepalive output")
+	}
+}
+
+// --- Duplicate issue detection ---
+
+func TestCreateIssueDuplicateDetection(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	// Create an agent + API key for auth
+	agent := &models.Agent{
+		Name: "Dup Test", Slug: "dup-test", ArchetypeSlug: "worker",
+		Model: "sonnet", WorkingDir: "/tmp", MaxTurns: 50, TimeoutSec: 600, Active: true,
+	}
+	d.CreateAgent(agent)
+
+	rawKey := "tlo_dup_test_key"
+	h := sha256.Sum256([]byte(rawKey))
+	keyHash := hex.EncodeToString(h[:])
+	d.CreateAPIKey(agent.ID, keyHash, "tlo_dup_tes")
+
+	authHandler := api.Auth(api.CreateIssue)
+
+	// First creation should succeed
+	body1 := `{"title":"Fix Login Bug","description":"details"}`
+	req1 := httptest.NewRequest("POST", "/api/v1/issues", strings.NewReader(body1))
+	req1.Header.Set("Authorization", "Bearer "+rawKey)
+	req1.Header.Set("Content-Type", "application/json")
+	w1 := httptest.NewRecorder()
+	authHandler(w1, req1)
+
+	if w1.Code != http.StatusCreated {
+		t.Fatalf("first create: status = %d, want 201, body: %s", w1.Code, w1.Body.String())
+	}
+
+	// Exact duplicate should return 409
+	body2 := `{"title":"Fix Login Bug","description":"other"}`
+	req2 := httptest.NewRequest("POST", "/api/v1/issues", strings.NewReader(body2))
+	req2.Header.Set("Authorization", "Bearer "+rawKey)
+	req2.Header.Set("Content-Type", "application/json")
+	w2 := httptest.NewRecorder()
+	authHandler(w2, req2)
+
+	if w2.Code != http.StatusConflict {
+		t.Fatalf("duplicate exact: status = %d, want 409, body: %s", w2.Code, w2.Body.String())
+	}
+
+	// Case-insensitive duplicate should also return 409
+	body3 := `{"title":"fix login bug","description":"other"}`
+	req3 := httptest.NewRequest("POST", "/api/v1/issues", strings.NewReader(body3))
+	req3.Header.Set("Authorization", "Bearer "+rawKey)
+	req3.Header.Set("Content-Type", "application/json")
+	w3 := httptest.NewRecorder()
+	authHandler(w3, req3)
+
+	if w3.Code != http.StatusConflict {
+		t.Fatalf("duplicate case-insensitive: status = %d, want 409, body: %s", w3.Code, w3.Body.String())
+	}
+
+	// Different title should succeed
+	body4 := `{"title":"Different Issue","description":"details"}`
+	req4 := httptest.NewRequest("POST", "/api/v1/issues", strings.NewReader(body4))
+	req4.Header.Set("Authorization", "Bearer "+rawKey)
+	req4.Header.Set("Content-Type", "application/json")
+	w4 := httptest.NewRecorder()
+	authHandler(w4, req4)
+
+	if w4.Code != http.StatusCreated {
+		t.Fatalf("different title: status = %d, want 201, body: %s", w4.Code, w4.Body.String())
+	}
+}
+
+// --- UI: issue creation error handling ---
+
+type stubSched struct{}
+
+func (s *stubSched) WakeAgentHeartbeat(*models.Agent) {}
+func (s *stubSched) RunAudit(int, int, string) (string, error) {
+	return "", nil
+}
+
+func testUI(t *testing.T, d *db.DB) *UI {
+	t.Helper()
+	tmpl, err := templates.Parse()
+	if err != nil {
+		t.Fatalf("parse templates: %v", err)
+	}
+	hub := NewSSEHub()
+	t.Cleanup(func() { hub.Close() })
+	return NewUI(d, hub, tmpl, nil, &stubSched{})
+}
+
+func TestCreateIssueUI_Success(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	form := strings.NewReader("title=Test+Issue&description=desc&priority=2")
+	req := httptest.NewRequest("POST", "/issues", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	ui.ListIssues(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", w.Code)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.HasPrefix(loc, "/issues/TLO-") {
+		t.Fatalf("redirect = %q, want /issues/TLO-*", loc)
+	}
+
+	// Verify the issue exists in DB
+	key := strings.TrimPrefix(loc, "/issues/")
+	issue, err := d.GetIssue(key)
+	if err != nil {
+		t.Fatalf("issue not in DB: %v", err)
+	}
+	if issue.Title != "Test Issue" {
+		t.Errorf("title = %q, want %q", issue.Title, "Test Issue")
+	}
+}
+
+func TestCreateIssueUI_EmptyTitle(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	form := strings.NewReader("title=&description=desc")
+	req := httptest.NewRequest("POST", "/issues", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	ui.ListIssues(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "/issues" {
+		t.Fatalf("redirect = %q, want /issues", loc)
+	}
+}
+
+func TestIssueDetail_NotFound(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	req := httptest.NewRequest("GET", "/issues/TLO-999", nil)
+	req.SetPathValue("key", "TLO-999")
+	w := httptest.NewRecorder()
+
+	ui.IssueDetail(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Issue not found") {
+		t.Errorf("body missing 'Issue not found', got: %s", body[:min(200, len(body))])
+	}
+}
+
+// --- Settings ---
+
+func TestSettingsGET(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	req := httptest.NewRequest("GET", "/settings", nil)
+	w := httptest.NewRecorder()
+
+	ui.Settings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{"Instance Settings", "Telegram Integration", "About", "Settings"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body missing %q", want)
+		}
+	}
+}
+
+func TestSettingsGET_FlashMessage(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	req := httptest.NewRequest("GET", "/settings?msg=Settings+saved", nil)
+	w := httptest.NewRecorder()
+
+	ui.Settings(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "Settings saved") {
+		t.Error("body missing flash message")
+	}
+}
+
+func TestSettingsPOST_Instance(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	form := strings.NewReader("section=instance&instance_name=TestOrg&issue_prefix=TEST")
+	req := httptest.NewRequest("POST", "/settings", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	ui.Settings(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", w.Code)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.Contains(loc, "msg=Settings+saved") {
+		t.Errorf("redirect = %q, want flash msg", loc)
+	}
+
+	// Verify values persisted
+	val, err := d.GetSetting("instance_name")
+	if err != nil {
+		t.Fatalf("GetSetting: %v", err)
+	}
+	if val != "TestOrg" {
+		t.Errorf("instance_name = %q, want TestOrg", val)
+	}
+	val, err = d.GetSetting("issue_prefix")
+	if err != nil {
+		t.Fatalf("GetSetting: %v", err)
+	}
+	if val != "TEST" {
+		t.Errorf("issue_prefix = %q, want TEST", val)
+	}
+}
+
+func TestSettingsPOST_Telegram(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	form := strings.NewReader("section=telegram&telegram_token=tok123&telegram_chat_id=-100999")
+	req := httptest.NewRequest("POST", "/settings", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	ui.Settings(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", w.Code)
+	}
+
+	val, _ := d.GetSetting("telegram_token")
+	if val != "tok123" {
+		t.Errorf("telegram_token = %q, want tok123", val)
+	}
+	val, _ = d.GetSetting("telegram_chat_id")
+	if val != "-100999" {
+		t.Errorf("telegram_chat_id = %q, want -100999", val)
+	}
+}
+
+func TestSettingsPOST_UnknownSection(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	form := strings.NewReader("section=bad")
+	req := httptest.NewRequest("POST", "/settings", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	ui.Settings(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", w.Code)
+	}
+	loc := w.Header().Get("Location")
+	if !strings.Contains(loc, "error=Unknown") {
+		t.Errorf("redirect = %q, want error param", loc)
 	}
 }
 

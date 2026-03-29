@@ -59,7 +59,7 @@
               </summary>
               {{if .Diff}}
               <div class="border-t border-zinc-800 p-3 overflow-x-auto">
-                <pre class="text-xs font-mono leading-relaxed">{{range diffLines .Diff}}<div class="{{.Class}} px-2 rounded-sm">{{.Content}}</div>{{end}}</pre>
+                <table class="text-xs font-mono leading-relaxed w-full border-collapse">{{range diffLines .Diff}}<tr class="{{.Class}}"><td class="select-none text-right text-zinc-600 px-1.5 w-[1%] whitespace-nowrap border-r border-zinc-800/50">{{.OldNum}}</td><td class="select-none text-right text-zinc-600 px-1.5 w-[1%] whitespace-nowrap border-r border-zinc-800/50">{{.NewNum}}</td><td class="select-none text-center w-4 {{if eq .Gutter "+"}}text-emerald-500{{else if eq .Gutter "-"}}text-red-500{{else}}text-indigo-400{{end}}">{{.Gutter}}</td><td class="diff-code px-2 whitespace-pre">{{.Content}}</td></tr>{{end}}</table>
               </div>
               {{end}}
             </details>

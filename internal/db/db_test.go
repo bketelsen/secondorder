@@ -1025,3 +1025,112 @@ func TestOpenWithTempFile(t *testing.T) {
 	}
 	d.Close()
 }
+
+// --- GetIssueByTitle ---
+
+func TestGetIssueByTitle(t *testing.T) {
+	d := testDB(t)
+
+	issue := &models.Issue{
+		Key:    "TLO-1",
+		Title:  "Fix Login Bug",
+		Status: "todo",
+	}
+	if err := d.CreateIssue(issue); err != nil {
+		t.Fatalf("create issue: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		title   string
+		wantKey string
+		wantErr bool
+	}{
+		{"exact match", "Fix Login Bug", "TLO-1", false},
+		{"case insensitive lower", "fix login bug", "TLO-1", false},
+		{"case insensitive upper", "FIX LOGIN BUG", "TLO-1", false},
+		{"case insensitive mixed", "fix Login BUG", "TLO-1", false},
+		{"no match", "Different Title", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := d.GetIssueByTitle(tt.title)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.Key != tt.wantKey {
+				t.Errorf("key = %q, want %q", got.Key, tt.wantKey)
+			}
+		})
+	}
+}
+
+func TestSettings(t *testing.T) {
+	d := testDB(t)
+
+	t.Run("defaults seeded by migration", func(t *testing.T) {
+		val, err := d.GetSetting("issue_prefix")
+		if err != nil {
+			t.Fatalf("get issue_prefix: %v", err)
+		}
+		if val != "TLO" {
+			t.Errorf("issue_prefix = %q, want %q", val, "TLO")
+		}
+	})
+
+	t.Run("get all settings returns seeded keys", func(t *testing.T) {
+		all, err := d.GetAllSettings()
+		if err != nil {
+			t.Fatalf("get all settings: %v", err)
+		}
+		expected := []string{"issue_prefix", "telegram_token", "telegram_chat_id", "github_url", "instance_name"}
+		for _, k := range expected {
+			if _, ok := all[k]; !ok {
+				t.Errorf("missing expected key %q", k)
+			}
+		}
+		if len(all) != len(expected) {
+			t.Errorf("got %d settings, want %d", len(all), len(expected))
+		}
+	})
+
+	t.Run("set existing setting", func(t *testing.T) {
+		if err := d.SetSetting("issue_prefix", "PRJ"); err != nil {
+			t.Fatalf("set: %v", err)
+		}
+		val, err := d.GetSetting("issue_prefix")
+		if err != nil {
+			t.Fatalf("get: %v", err)
+		}
+		if val != "PRJ" {
+			t.Errorf("got %q, want %q", val, "PRJ")
+		}
+	})
+
+	t.Run("set new setting", func(t *testing.T) {
+		if err := d.SetSetting("custom_key", "custom_value"); err != nil {
+			t.Fatalf("set: %v", err)
+		}
+		val, err := d.GetSetting("custom_key")
+		if err != nil {
+			t.Fatalf("get: %v", err)
+		}
+		if val != "custom_value" {
+			t.Errorf("got %q, want %q", val, "custom_value")
+		}
+	})
+
+	t.Run("get nonexistent setting returns error", func(t *testing.T) {
+		_, err := d.GetSetting("nonexistent")
+		if err == nil {
+			t.Fatal("expected error for nonexistent key")
+		}
+	})
+}

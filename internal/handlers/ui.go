@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -36,7 +37,7 @@ func NewUI(database *db.DB, sse *SSEHub, tmpl *template.Template, wake func(*mod
 
 func (u *UI) Dashboard(w http.ResponseWriter, r *http.Request) {
 	stats, _ := u.db.GetDashboardStats()
-	issues, _ := u.db.ListIssues("", 20)
+	issues, _ := u.db.GetRecentIssues(20)
 	agents, _ := u.db.ListAgents()
 
 	data := map[string]any{
@@ -67,6 +68,7 @@ func (u *UI) ListIssues(w http.ResponseWriter, r *http.Request) {
 		"Issues":        issues,
 		"Agents":        agents,
 		"CurrentStatus": status,
+		"Error":         r.URL.Query().Get("error"),
 	})
 }
 
@@ -78,7 +80,12 @@ func (u *UI) createIssueUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, _ := u.db.NextIssueKey()
+	key, err := u.db.NextIssueKey()
+	if err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+generate+issue+key", http.StatusSeeOther)
+		return
+	}
+
 	issue := &models.Issue{
 		ID:          uuid.New().String(),
 		Key:         key,
@@ -106,7 +113,10 @@ func (u *UI) createIssueUI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	u.db.CreateIssue(issue)
+	if err := u.db.CreateIssue(issue); err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+create+issue", http.StatusSeeOther)
+		return
+	}
 	u.db.LogActivity("create", "issue", key, nil, title)
 
 	if assignee != nil && u.wake != nil {
@@ -126,7 +136,12 @@ func (u *UI) IssueDetail(w http.ResponseWriter, r *http.Request) {
 
 	issue, err := u.db.GetIssue(key)
 	if err != nil {
-		http.NotFound(w, r)
+		w.WriteHeader(http.StatusNotFound)
+		u.render(w, "not_found", map[string]any{
+			"Title":   "Issue not found",
+			"Message": fmt.Sprintf("Issue %q does not exist.", key),
+			"BackURL": "/issues",
+		})
 		return
 	}
 	comments, _ := u.db.ListComments(key)
@@ -701,6 +716,67 @@ func (u *UI) movePolicyFile(filename, fromDir, toDir string) {
 func (u *UI) deletePolicyFile(dir, filename string) {
 	base := u.policyBaseDir()
 	os.Remove(filepath.Join(base, dir, filename))
+}
+
+func (u *UI) Settings(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		u.saveSettings(w, r)
+		return
+	}
+
+	settings, _ := u.db.GetAllSettings()
+
+	version := "dev"
+	goVersion := "unknown"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		goVersion = info.GoVersion
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			version = info.Main.Version
+		}
+	}
+
+	var sqliteVersion string
+	u.db.QueryRow("SELECT sqlite_version()").Scan(&sqliteVersion)
+
+	gitHubURL := settings["github_url"]
+	if gitHubURL == "" {
+		gitHubURL = "https://github.com/msoedov/thelastorg"
+	}
+
+	u.render(w, "settings", map[string]any{
+		"Settings":      settings,
+		"Version":       version,
+		"GoVersion":     goVersion,
+		"SQLiteVersion": sqliteVersion,
+		"GitHubURL":     gitHubURL,
+		"Flash":         r.URL.Query().Get("msg"),
+		"Error":         r.URL.Query().Get("error"),
+	})
+}
+
+func (u *UI) saveSettings(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	section := r.FormValue("section")
+
+	var keys []string
+	switch section {
+	case "instance":
+		keys = []string{"instance_name", "issue_prefix"}
+	case "telegram":
+		keys = []string{"telegram_token", "telegram_chat_id"}
+	default:
+		http.Redirect(w, r, "/settings?error=Unknown+section", http.StatusSeeOther)
+		return
+	}
+
+	for _, k := range keys {
+		if err := u.db.SetSetting(k, r.FormValue(k)); err != nil {
+			http.Redirect(w, r, "/settings?error=Failed+to+save+settings", http.StatusSeeOther)
+			return
+		}
+	}
+
+	http.Redirect(w, r, "/settings?msg=Settings+saved", http.StatusSeeOther)
 }
 
 func (u *UI) render(w http.ResponseWriter, name string, data any) {

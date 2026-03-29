@@ -26,6 +26,8 @@ func Parse() (*template.Template, error) {
 		"work_blocks.html",
 		"work_block_detail.html",
 		"policies.html",
+		"settings.html",
+		"not_found.html",
 	}
 
 	for _, pf := range partialFiles {
@@ -249,6 +251,9 @@ func deref(s *string) string {
 
 type DiffLine struct {
 	Class   string
+	Gutter  string
+	OldNum  string
+	NewNum  string
 	Content string
 }
 
@@ -257,19 +262,41 @@ func diffLines(diff string) []DiffLine {
 		return nil
 	}
 	var lines []DiffLine
+	var oldNum, newNum int
 	for _, line := range strings.Split(diff, "\n") {
 		dl := DiffLine{Content: line}
 		switch {
 		case strings.HasPrefix(line, "@@"):
 			dl.Class = "text-indigo-400 bg-indigo-950/20"
+			dl.Gutter = "@@"
+			var oldLen, newLen int
+			fmt.Sscanf(line, "@@ -%d,%d +%d,%d", &oldNum, &oldLen, &newNum, &newLen)
+			_, _ = oldLen, newLen
 		case strings.HasPrefix(line, "+++"), strings.HasPrefix(line, "---"), strings.HasPrefix(line, "diff "):
-			dl.Class = "text-zinc-500 font-medium"
+			dl.Class = "text-zinc-600 font-medium"
 		case strings.HasPrefix(line, "+"):
 			dl.Class = "text-emerald-400 bg-emerald-950/30"
+			dl.Gutter = "+"
+			dl.NewNum = fmt.Sprintf("%d", newNum)
+			dl.Content = line[1:]
+			newNum++
 		case strings.HasPrefix(line, "-"):
 			dl.Class = "text-red-400 bg-red-950/30"
+			dl.Gutter = "-"
+			dl.OldNum = fmt.Sprintf("%d", oldNum)
+			dl.Content = line[1:]
+			oldNum++
 		default:
 			dl.Class = "text-zinc-500"
+			if oldNum > 0 {
+				dl.OldNum = fmt.Sprintf("%d", oldNum)
+				dl.NewNum = fmt.Sprintf("%d", newNum)
+				oldNum++
+				newNum++
+				if len(line) > 0 {
+					dl.Content = line[1:]
+				}
+			}
 		}
 		lines = append(lines, dl)
 	}

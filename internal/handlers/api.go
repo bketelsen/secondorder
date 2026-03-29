@@ -267,6 +267,16 @@ func (a *API) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if existing, err := a.db.GetIssueByTitle(body.Title); err == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":        "issue with this title already exists",
+			"existing_key": existing.Key,
+		})
+		return
+	}
+
 	key, err := a.db.NextIssueKey()
 	if err != nil {
 		jsonError(w, err.Error(), http.StatusInternalServerError)

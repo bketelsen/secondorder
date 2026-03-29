@@ -8,6 +8,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
 body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
 
@@ -69,6 +71,15 @@ details[open] .chev { transform: rotate(90deg); }
 
 /* Focus ring */
 .focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(99 102 241 / 0.5); }
+
+/* Diff syntax highlighting: let hljs colors override diff row text colors */
+td.diff-code { color: #d4d4d8; }
+td.diff-code .hljs-keyword, td.diff-code .hljs-selector-tag, td.diff-code .hljs-built_in { color: #f47067; }
+td.diff-code .hljs-string, td.diff-code .hljs-attr { color: #96d0ff; }
+td.diff-code .hljs-comment { color: #768390; }
+td.diff-code .hljs-function, td.diff-code .hljs-title { color: #dcbdfb; }
+td.diff-code .hljs-number, td.diff-code .hljs-literal { color: #6cb6ff; }
+td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
 </style>
   </head>
   <body class="bg-zinc-950 text-zinc-200 min-h-screen flex">
@@ -148,6 +159,15 @@ details[open] .chev { transform: rotate(90deg); }
               stroke-linejoin="round" stroke-width="1.5"
               d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           Policies
+        </a>
+        <a href="/settings"
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          <svg class="w-4 h-4" aria-hidden="true" fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"><path stroke-linecap="round"
+              stroke-linejoin="round" stroke-width="1.5"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          Settings
         </a>
       </div>
       <div class="px-3 py-3 border-t border-zinc-800">
@@ -339,6 +359,38 @@ if (!document.getElementById('toast-progress-style')) {
   s.textContent = '@keyframes shrink { from { width: 100%; } to { width: 0%; } }';
   document.head.appendChild(s);
 }
+
+/* Diff syntax highlighting */
+(function() {
+  if (typeof hljs === 'undefined') return;
+  var extMap = {go:'go',py:'python',js:'javascript',ts:'typescript',jsx:'javascript',tsx:'typescript',html:'xml',css:'css',sql:'sql',sh:'bash',yml:'yaml',yaml:'yaml',json:'json',rs:'rust',rb:'ruby',java:'java',kt:'kotlin',swift:'swift',c:'c',cpp:'cpp',h:'c',hpp:'cpp',toml:'ini',xml:'xml',proto:'protobuf',md:'markdown',tf:'hcl'};
+  function langFromPath(p) { var ext = p.split('.').pop(); return extMap[ext] || null; }
+  document.querySelectorAll('table').forEach(function(table) {
+    var groups = [], cur = null;
+    table.querySelectorAll('tr').forEach(function(tr) {
+      var tds = tr.querySelectorAll('td');
+      if (tds.length < 4) return;
+      var contentTd = tds[3];
+      var cls = tr.className;
+      if (cls.indexOf('font-medium') !== -1) {
+        var m = contentTd.textContent.match(/diff --git a\/(.+?) b\//);
+        if (m) { cur = {lang: langFromPath(m[1]), rows: []}; groups.push(cur); }
+        return;
+      }
+      if (cls.indexOf('text-indigo-400') !== -1) return;
+      if (cur && cur.lang) cur.rows.push(contentTd);
+    });
+    groups.forEach(function(g) {
+      if (!g.lang || !g.rows.length) return;
+      var code = g.rows.map(function(td) { return td.textContent; }).join('\n');
+      try {
+        var result = hljs.highlight(code, {language: g.lang, ignoreIllegals: true});
+        var lines = result.value.split('\n');
+        g.rows.forEach(function(td, i) { if (lines[i] !== undefined) td.innerHTML = lines[i]; });
+      } catch(e) {}
+    });
+  });
+})();
 
 /* A11Y: Mark active nav link with aria-current */
 (function() {
