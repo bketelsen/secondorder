@@ -67,12 +67,22 @@ func main() {
 	// Callbacks
 	sched.SetOnRunComplete(func(run *models.Run) {
 		data, _ := json.Marshal(map[string]string{
-			"run_id":  run.ID,
+			"run_id":   run.ID,
 			"agent_id": run.AgentID,
-			"status":  run.Status,
-			"mode":    run.Mode,
+			"status":   run.Status,
+			"mode":     run.Mode,
 		})
 		sse.Broadcast("run_complete", string(data))
+
+		// Update audit_runs when an audit run completes
+		if run.Mode == "audit" {
+			status := "completed"
+			if run.Status == "failed" || run.Status == "cancelled" {
+				status = run.Status
+			}
+			database.Exec(`UPDATE audit_runs SET status=?, completed_at=datetime('now') WHERE run_id=? AND status='running'`,
+				status, run.ID)
+		}
 	})
 
 	// Telegram bot (optional)
@@ -133,8 +143,9 @@ func main() {
 	mux.HandleFunc("POST /work-blocks", ui.ListWorkBlocks)
 	mux.HandleFunc("GET /work-blocks/{id}", ui.WorkBlockDetail)
 	mux.HandleFunc("POST /work-blocks/{id}", ui.WorkBlockDetail)
-	mux.HandleFunc("GET /policies", ui.EvolvePage)
-	mux.HandleFunc("POST /policies", ui.EvolvePage)
+	mux.HandleFunc("GET /activity", ui.ActivityPage)
+	mux.HandleFunc("GET /policies", ui.PoliciesPage)
+	mux.HandleFunc("POST /policies", ui.PoliciesPage)
 	mux.HandleFunc("GET /settings", ui.Settings)
 	mux.HandleFunc("POST /settings", ui.Settings)
 	mux.HandleFunc("GET /runs/{id}", ui.RunDetail)

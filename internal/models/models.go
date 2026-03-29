@@ -4,12 +4,14 @@ import "time"
 
 // Issue statuses
 const (
-	StatusTodo       = "todo"
-	StatusInProgress = "in_progress"
-	StatusInReview   = "in_review"
-	StatusDone       = "done"
-	StatusBlocked    = "blocked"
-	StatusCancelled  = "cancelled"
+	StatusTodo        = "todo"
+	StatusInProgress  = "in_progress"
+	StatusInReview    = "in_review"
+	StatusDone        = "done"
+	StatusBlocked     = "blocked"
+	StatusCancelled   = "cancelled"
+	StatusWontDo      = "wont_do"
+	StatusBoardReview = "board_review"
 )
 
 // Run statuses

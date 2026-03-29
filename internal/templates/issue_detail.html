@@ -104,7 +104,9 @@
               <option value="in_review" {{if eq .Issue.Status "in_review"}}selected{{end}}>In Review</option>
               <option value="done" {{if eq .Issue.Status "done"}}selected{{end}}>Done</option>
               <option value="blocked" {{if eq .Issue.Status "blocked"}}selected{{end}}>Blocked</option>
+              <option value="board_review" {{if eq .Issue.Status "board_review"}}selected{{end}}>Board Review</option>
               <option value="cancelled" {{if eq .Issue.Status "cancelled"}}selected{{end}}>Cancelled</option>
+              <option value="wont_do" {{if eq .Issue.Status "wont_do"}}selected{{end}}>Won't Do</option>
             </select>
             <button type="submit" class="mt-1.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium bg-zinc-700 text-zinc-200 hover:bg-zinc-600 active:scale-[0.97] transition-all">Update</button>
           </form>

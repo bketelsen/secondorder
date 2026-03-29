@@ -16,7 +16,7 @@ Agents do work, ship it, and the system learns nothing. Retro closes that gap:
 
 ### Triggering an Audit
 
-Navigate to `/retro` and click **Run Audit**. Configure:
+Navigate to `/policies` and click **Run Audit**. Configure:
 
 - **Blocks** -- Number of recent shipped work blocks to review (default: 3) or
 - **Issues** -- Number of recent completed issues to review (default: 50)
@@ -68,7 +68,7 @@ Each patch contains the full proposed archetype content. Patches are stored in t
 ### Audit Lifecycle
 
 ```
-Human clicks "Run Audit" on /retro
+Human clicks "Run Audit" on /policies
   -> auditor agent spawns with performance data + current archetypes
   -> auditor reviews patterns (retries, rejections, cost)
   -> auditor writes policies to artifact-docs/policies/
@@ -76,7 +76,7 @@ Human clicks "Run Audit" on /retro
   -> auditor cleans up artifact-docs/
   -> audit completes, findings recorded
 
-Human reviews on /retro:
+Human reviews on /policies:
   -> reads policies (auto-applied, visible in policies section)
   -> reviews archetype patches (diff view)
   -> approves or rejects each patch
@@ -125,8 +125,8 @@ POST /api/v1/archetype-patches
 ### UI Routes
 
 ```
-GET  /evolve       -- Audit page: policies, pending patches, run history
-POST /evolve       -- Actions: run_audit, approve_patch, reject_patch, save_policy
+GET  /policies       -- Audit page: policies, pending patches, run history
+POST /policies       -- Actions: run_audit, approve_patch, reject_patch, save_policy
 ```
 
 

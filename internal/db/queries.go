@@ -111,12 +111,14 @@ func (d *DB) GetReviewer(agentID string) (*models.Agent, error) {
 		}
 	}
 
-	// 2. Reports-to chain
-	if agent.ReportsTo != nil {
-		manager, err := d.GetAgent(*agent.ReportsTo)
-		if err == nil {
-			return manager, nil
+	// 2. Walk reports-to chain (up to 10 levels to prevent cycles)
+	current := agent
+	for i := 0; i < 10 && current.ReportsTo != nil; i++ {
+		manager, err := d.GetAgent(*current.ReportsTo)
+		if err != nil {
+			break
 		}
+		return manager, nil
 	}
 
 	// 3. CEO fallback
@@ -283,7 +285,7 @@ func (d *DB) CheckoutIssue(key, agentID string, expectedStatuses []string) error
 func (d *DB) GetAgentInbox(agentID string) ([]models.Issue, error) {
 	rows, err := d.Query(`SELECT id, key, title, description, status, priority, assignee_agent_id,
 		parent_issue_key, work_block_id, started_at, completed_at, created_at, updated_at
-		FROM issues WHERE assignee_agent_id=? AND status NOT IN ('done','cancelled')
+		FROM issues WHERE assignee_agent_id=? AND status NOT IN ('done','cancelled','wont_do')
 		ORDER BY priority DESC, created_at`, agentID)
 	if err != nil {
 		return nil, err
@@ -304,7 +306,7 @@ func (d *DB) GetAgentInbox(agentID string) ([]models.Issue, error) {
 
 func (d *DB) CountIssues() (int, int, error) {
 	var total, open int
-	err := d.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status NOT IN ('done','cancelled') THEN 1 ELSE 0 END), 0) FROM issues`).Scan(&total, &open)
+	err := d.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status NOT IN ('done','cancelled','wont_do') THEN 1 ELSE 0 END), 0) FROM issues`).Scan(&total, &open)
 	return total, open, err
 }
 
@@ -623,6 +625,31 @@ func (d *DB) LogActivity(action, entityType, entityID string, agentID *string, d
 	return err
 }
 
+func (d *DB) ListActivity(limit int) ([]models.ActivityLog, error) {
+	query := `SELECT a.id, a.action, a.entity_type, a.entity_id, a.agent_id, a.details, a.created_at
+		FROM activity_log a ORDER BY a.created_at DESC`
+	var args []any
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+	rows, err := d.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []models.ActivityLog
+	for rows.Next() {
+		var l models.ActivityLog
+		if err := rows.Scan(&l.ID, &l.Action, &l.EntityType, &l.EntityID, &l.AgentID, &l.Details, &l.CreatedAt); err != nil {
+			return nil, err
+		}
+		logs = append(logs, l)
+	}
+	return logs, rows.Err()
+}
+
 // --- Dashboard ---
 
 func (d *DB) GetDashboardStats() (*models.DashboardStats, error) {
@@ -784,6 +811,9 @@ func (d *DB) UpdateWorkBlockStatus(id, newStatus string) error {
 	now := time.Now()
 	if newStatus == models.WBStatusShipped || newStatus == models.WBStatusCancelled {
 		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=?, completed_at=? WHERE id=?`, newStatus, now, now, id)
+	} else if newStatus == models.WBStatusActive && wb.Status == models.WBStatusReady {
+		// Reactivation: clear completed_at
+		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=?, completed_at=NULL WHERE id=?`, newStatus, now, id)
 	} else {
 		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=? WHERE id=?`, newStatus, now, id)
 	}
@@ -835,7 +865,7 @@ func (d *DB) ListWorkBlockIssues(blockID string) ([]models.Issue, error) {
 
 func (d *DB) CheckWorkBlockAutoReady(blockID string) (bool, error) {
 	var total, notDone int
-	if err := d.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status NOT IN ('done','cancelled') THEN 1 ELSE 0 END), 0)
+	if err := d.QueryRow(`SELECT COUNT(*), COALESCE(SUM(CASE WHEN status NOT IN ('done','cancelled','wont_do') THEN 1 ELSE 0 END), 0)
 		FROM issues WHERE work_block_id=?`, blockID).Scan(&total, &notDone); err != nil {
 		return false, err
 	}
@@ -848,7 +878,7 @@ func (d *DB) GetWorkBlockStats(blockID string) (*models.WorkBlockStats, error) {
 	// Issue counts
 	d.QueryRow(`SELECT COUNT(*),
 		COALESCE(SUM(CASE WHEN status='done' THEN 1 ELSE 0 END), 0),
-		COALESCE(SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END), 0)
+		COALESCE(SUM(CASE WHEN status IN ('cancelled','wont_do') THEN 1 ELSE 0 END), 0)
 		FROM issues WHERE work_block_id=?`, blockID).Scan(&s.IssuesPlanned, &s.IssuesCompleted, &s.IssuesCancelled)
 
 	// Cost and run count
@@ -1040,7 +1070,7 @@ func (d *DB) GetRecentCompletedIssues(limit int) ([]models.Issue, error) {
 		i.parent_issue_key, i.work_block_id, i.started_at, i.completed_at, i.created_at, i.updated_at,
 		COALESCE(a.name, '')
 		FROM issues i LEFT JOIN agents a ON i.assignee_agent_id = a.id
-		WHERE i.status IN ('done','cancelled')
+		WHERE i.status IN ('done','cancelled','wont_do')
 		ORDER BY i.completed_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err

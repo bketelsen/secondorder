@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -201,7 +203,7 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Auto-ready check for work blocks
-	if (body.Status == models.StatusDone || body.Status == models.StatusCancelled) && issue.WorkBlockID != nil {
+	if (body.Status == models.StatusDone || body.Status == models.StatusCancelled || body.Status == models.StatusWontDo) && issue.WorkBlockID != nil {
 		if allDone, _ := a.db.CheckWorkBlockAutoReady(*issue.WorkBlockID); allDone {
 			a.db.UpdateWorkBlockStatus(*issue.WorkBlockID, models.WBStatusReady)
 			if a.telegram != nil {
@@ -546,9 +548,16 @@ func (a *API) CreateArchetypePatch(w http.ResponseWriter, r *http.Request) {
 		auditRunID = "manual"
 	}
 
+	// Snapshot current archetype content
+	currentContent := ""
+	if data, err := os.ReadFile(filepath.Join("archetypes", body.AgentSlug+".md")); err == nil {
+		currentContent = string(data)
+	}
+
 	patch := &models.ArchetypePatch{
 		AuditRunID:      auditRunID,
 		AgentSlug:       body.AgentSlug,
+		CurrentContent:  currentContent,
 		ProposedContent: body.ProposedContent,
 	}
 	if err := a.db.CreateArchetypePatch(patch); err != nil {

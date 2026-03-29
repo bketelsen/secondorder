@@ -284,6 +284,10 @@ func (u *UI) createAgentUI(w http.ResponseWriter, r *http.Request) {
 	if agent.ArchetypeSlug == "" {
 		agent.ArchetypeSlug = "other"
 	}
+	if _, err := os.Stat(filepath.Join("archetypes", agent.ArchetypeSlug+".md")); err != nil {
+		http.Error(w, fmt.Sprintf("archetype file not found: archetypes/%s.md", agent.ArchetypeSlug), http.StatusBadRequest)
+		return
+	}
 	if agent.WorkingDir == "" {
 		agent.WorkingDir = "."
 	}
@@ -547,9 +551,14 @@ func (u *UI) updateWorkBlockUI(w http.ResponseWriter, r *http.Request, id string
 	http.Redirect(w, r, "/work-blocks/"+id, http.StatusSeeOther)
 }
 
-func (u *UI) EvolvePage(w http.ResponseWriter, r *http.Request) {
+func (u *UI) ActivityPage(w http.ResponseWriter, r *http.Request) {
+	logs, _ := u.db.ListActivity(200)
+	u.render(w, "activity", map[string]any{"Logs": logs})
+}
+
+func (u *UI) PoliciesPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
-		u.handleEvolveAction(w, r)
+		u.handlePoliciesAction(w, r)
 		return
 	}
 
@@ -601,7 +610,7 @@ func (u *UI) readPolicyDir(dirname string) []policyFile {
 	return policies
 }
 
-func (u *UI) handleEvolveAction(w http.ResponseWriter, r *http.Request) {
+func (u *UI) handlePoliciesAction(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	action := r.FormValue("action")
 

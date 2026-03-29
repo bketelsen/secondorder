@@ -26,6 +26,7 @@ func Parse() (*template.Template, error) {
 		"work_blocks.html",
 		"work_block_detail.html",
 		"policies.html",
+		"activity.html",
 		"settings.html",
 		"not_found.html",
 	}
@@ -127,6 +128,10 @@ func statusColor(s string) string {
 		return "bg-red-500/15 text-red-400 ring-1 ring-inset ring-red-500/25"
 	case "cancelled":
 		return "bg-zinc-500/10 text-zinc-500 ring-1 ring-inset ring-zinc-500/20"
+	case "wont_do":
+		return "bg-zinc-500/10 text-zinc-500 ring-1 ring-inset ring-zinc-500/20"
+	case "board_review":
+		return "bg-purple-500/15 text-purple-400 ring-1 ring-inset ring-purple-500/25"
 	default:
 		return "bg-zinc-700 text-zinc-300"
 	}
@@ -146,6 +151,10 @@ func statusIcon(s string) template.HTML {
 		return `<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
 	case "cancelled":
 		return `<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/></svg>`
+	case "wont_do":
+		return `<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
+	case "board_review":
+		return `<svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3M8 10v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`
 	default:
 		return ""
 	}
@@ -165,6 +174,10 @@ func statusDot(s string) string {
 		return "text-red-400"
 	case "cancelled":
 		return "text-zinc-600"
+	case "wont_do":
+		return "text-zinc-600"
+	case "board_review":
+		return "text-purple-400"
 	default:
 		return "text-zinc-400"
 	}
