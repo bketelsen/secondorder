@@ -60,6 +60,11 @@ func (u *UI) Dashboard(w http.ResponseWriter, r *http.Request) {
 
 func (u *UI) ListIssues(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		r.ParseForm()
+		if r.FormValue("backlog") == "1" {
+			u.submitBacklog(w, r)
+			return
+		}
 		u.createIssueUI(w, r)
 		return
 	}
@@ -126,6 +131,56 @@ func (u *UI) createIssueUI(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/issues", http.StatusSeeOther)
+}
+
+func (u *UI) submitBacklog(w http.ResponseWriter, r *http.Request) {
+	text := strings.TrimSpace(r.FormValue("backlog_text"))
+	if text == "" {
+		http.Redirect(w, r, "/issues", http.StatusSeeOther)
+		return
+	}
+
+	key, err := u.db.NextIssueKey()
+	if err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+generate+issue+key", http.StatusSeeOther)
+		return
+	}
+
+	// First line (up to 120 chars) as title, full text as description
+	title := text
+	if idx := strings.IndexByte(title, '\n'); idx > 0 {
+		title = title[:idx]
+	}
+	if len(title) > 120 {
+		title = title[:120]
+	}
+
+	issue := &models.Issue{
+		ID:          uuid.New().String(),
+		Key:         key,
+		Title:       title,
+		Description: text,
+		Status:      models.StatusTodo,
+	}
+
+	// Always assign to CEO for triage
+	var ceo *models.Agent
+	if c, err := u.db.GetCEOAgent(); err == nil {
+		issue.AssigneeAgentID = &c.ID
+		ceo = c
+	}
+
+	if err := u.db.CreateIssue(issue); err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+create+issue", http.StatusSeeOther)
+		return
+	}
+	u.db.LogActivity("backlog", "issue", key, nil, title)
+
+	if ceo != nil && u.wake != nil {
+		go u.wake(ceo, issue)
+	}
+
+	http.Redirect(w, r, "/issues/"+key, http.StatusSeeOther)
 }
 
 func (u *UI) IssueDetail(w http.ResponseWriter, r *http.Request) {
@@ -805,6 +860,82 @@ func (u *UI) saveSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/settings?msg=Settings+saved", http.StatusSeeOther)
+}
+
+func (u *UI) ListCrons(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		u.createCronUI(w, r)
+		return
+	}
+	crons, _ := u.db.ListCronJobs()
+	agents, _ := u.db.ListAgents()
+	u.render(w, "crons", map[string]any{
+		"Crons":  crons,
+		"Agents": agents,
+		"Error":  r.URL.Query().Get("error"),
+	})
+}
+
+func (u *UI) createCronUI(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	agentID := r.FormValue("agent_id")
+	task := r.FormValue("task")
+	frequency := r.FormValue("frequency")
+
+	if agentID == "" || task == "" {
+		http.Redirect(w, r, "/crons?error=Agent+and+task+are+required", http.StatusSeeOther)
+		return
+	}
+
+	validFreqs := map[string]bool{"1m": true, "20m": true, "1h": true, "2h": true, "1d": true}
+	if !validFreqs[frequency] {
+		frequency = "1h"
+	}
+
+	cron := &models.CronJob{
+		AgentID:   agentID,
+		Task:      task,
+		Frequency: frequency,
+	}
+	if err := u.db.CreateCronJob(cron); err != nil {
+		http.Redirect(w, r, "/crons?error=Failed+to+create+cron", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/crons", http.StatusSeeOther)
+}
+
+func (u *UI) CronAction(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	r.ParseForm()
+	action := r.FormValue("action")
+
+	cron, err := u.db.GetCronJob(id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	switch action {
+	case "toggle":
+		cron.Active = !cron.Active
+		u.db.UpdateCronJob(cron)
+	case "update":
+		if agentID := r.FormValue("agent_id"); agentID != "" {
+			cron.AgentID = agentID
+		}
+		if task := r.FormValue("task"); task != "" {
+			cron.Task = task
+		}
+		if freq := r.FormValue("frequency"); freq != "" {
+			cron.Frequency = freq
+		}
+		u.db.UpdateCronJob(cron)
+	case "delete":
+		u.db.DeleteCronJob(id)
+	}
+
+	http.Redirect(w, r, "/crons", http.StatusSeeOther)
 }
 
 func (u *UI) render(w http.ResponseWriter, name string, data any) {
