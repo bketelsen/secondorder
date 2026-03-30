@@ -1,33 +1,33 @@
 {{template "head" .}}
 {{template "nav" .}}
-<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8">
+<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
   <div class="max-w-5xl mx-auto">
 
     <div class="mb-6">
-      <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Activity</h1>
-      <p class="text-[13px] text-zinc-500 mt-0.5">Recent actions across the organization</p>
+      <h1 class="text-lg font-semibold text-ink tracking-tight">Activity</h1>
+      <p class="text-[13px] text-ink3/50 mt-0.5">Recent actions across the organization</p>
     </div>
 
     {{if .Logs}}
-    <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg divide-y divide-zinc-800/60 overflow-hidden fade-in">
+    <div class="bg-card border border-bd rounded-lg divide-y divide-sf overflow-hidden fade-in">
       {{range .Logs}}
       <div class="flex items-center gap-3 px-4 py-2.5">
-        <span class="text-[11px] text-zinc-500 tabular-nums shrink-0 w-16">{{timeAgo .CreatedAt}}</span>
-        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-700 text-zinc-300 shrink-0">{{.Action}}</span>
-        <span class="text-[11px] text-zinc-500 shrink-0">{{.EntityType}}</span>
+        <span class="text-[11px] text-ink3/50 tabular-nums shrink-0 w-16">{{timeAgo .CreatedAt}}</span>
+        <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-bd text-ink2 shrink-0">{{.Action}}</span>
+        <span class="text-[11px] text-ink3/50 shrink-0">{{.EntityType}}</span>
         {{if eq .EntityType "issue"}}
-        <a href="/issues/{{.EntityID}}" class="font-mono text-xs text-indigo-400 hover:text-indigo-300 shrink-0">{{.EntityID}}</a>
+        <a href="/issues/{{.EntityID}}" class="font-mono text-xs text-ac-t hover:text-ac-t shrink-0">{{.EntityID}}</a>
         {{else if eq .EntityType "work_block"}}
-        <a href="/work-blocks/{{.EntityID}}" class="font-mono text-xs text-indigo-400 hover:text-indigo-300 shrink-0">{{truncate .EntityID 8}}</a>
+        <a href="/work-blocks/{{.EntityID}}" class="font-mono text-xs text-ac-t hover:text-ac-t shrink-0">{{truncate .EntityID 8}}</a>
         {{else}}
-        <span class="font-mono text-xs text-zinc-400 shrink-0">{{truncate .EntityID 8}}</span>
+        <span class="font-mono text-xs text-ink3 shrink-0">{{truncate .EntityID 8}}</span>
         {{end}}
-        {{if .Details}}<span class="text-[13px] text-zinc-400 truncate flex-1">{{truncate .Details 80}}</span>{{end}}
+        {{if .Details}}<span class="text-[13px] text-ink3 truncate flex-1">{{truncate .Details 80}}</span>{{end}}
       </div>
       {{end}}
     </div>
     {{else}}
-    <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-10 text-center text-sm text-zinc-500">No activity recorded yet.</div>
+    <div class="bg-card border border-bd rounded-lg px-4 py-10 text-center text-sm text-ink3/50">No activity recorded yet.</div>
     {{end}}
 
   </div>

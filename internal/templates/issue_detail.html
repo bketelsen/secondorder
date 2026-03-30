@@ -1,12 +1,12 @@
 {{template "head" .}}
 {{template "nav" .}}
-<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8">
+<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
   <div class="max-w-6xl mx-auto">
 
     <div class="flex items-center gap-1.5 mb-5 text-xs">
-      <a href="/issues" class="text-zinc-500 hover:text-zinc-300 transition-colors">Issues</a>
-      <span class="text-zinc-700">/</span>
-      <span class="text-zinc-400 font-mono">{{.Issue.Key}}</span>
+      <a href="/issues" class="text-ink3/50 hover:text-ink2 transition-colors">Issues</a>
+      <span class="text-ink3/30">/</span>
+      <span class="text-ink3 font-mono">{{.Issue.Key}}</span>
     </div>
 
     <div class="flex gap-6">
@@ -17,24 +17,24 @@
         <div>
           <div class="flex items-start gap-3 mb-3">
             <span class="{{statusColor .Issue.Status}} inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium mt-0.5 shrink-0">{{statusIcon .Issue.Status}} {{.Issue.Status}}</span>
-            <h1 class="text-xl font-semibold text-zinc-100 leading-snug">{{.Issue.Title}}</h1>
+            <h1 class="text-xl font-semibold text-ink leading-snug">{{.Issue.Title}}</h1>
           </div>
           {{if .Issue.Description}}
-          <div class="text-[13px] text-zinc-400 whitespace-pre-wrap leading-relaxed bg-zinc-800/40 border border-zinc-800 rounded-lg p-4">{{.Issue.Description}}</div>
+          <div class="text-[13px] text-ink3 whitespace-pre-wrap leading-relaxed bg-sf border border-bd rounded-lg p-4">{{.Issue.Description}}</div>
           {{end}}
         </div>
 
         <!-- Children -->
         {{if .Children}}
         <div>
-          <h3 class="text-[13px] font-medium text-zinc-300 mb-2">Sub-issues</h3>
-          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg divide-y divide-zinc-800/60 overflow-hidden">
+          <h3 class="text-[13px] font-medium text-ink2 mb-2">Sub-issues</h3>
+          <div class="bg-card border border-bd rounded-lg divide-y divide-sf overflow-hidden">
             {{range .Children}}
-            <a href="/issues/{{.Key}}" class="flex items-center gap-3 px-4 py-2 hover:bg-zinc-800/40 transition-colors">
+            <a href="/issues/{{.Key}}" class="flex items-center gap-3 px-4 py-2 hover:bg-sf transition-colors">
               <span class="{{statusColor .Status}} inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0">{{statusIcon .Status}}</span>
-              <span class="font-mono text-xs text-zinc-500 w-14 shrink-0">{{.Key}}</span>
-              <span class="text-[13px] text-zinc-200 flex-1 truncate">{{.Title}}</span>
-              <span class="text-[11px] text-zinc-600 tabular-nums">{{timeAgo .UpdatedAt}}</span>
+              <span class="font-mono text-xs text-ink3/50 w-14 shrink-0">{{.Key}}</span>
+              <span class="text-[13px] text-ink flex-1 truncate">{{.Title}}</span>
+              <span class="text-[11px] text-ink3/40 tabular-nums">{{timeAgo .UpdatedAt}}</span>
             </a>
             {{end}}
           </div>
@@ -44,22 +44,22 @@
         <!-- Runs -->
         {{if .Runs}}
         <div>
-          <h3 class="text-[13px] font-medium text-zinc-300 mb-2">Runs</h3>
+          <h3 class="text-[13px] font-medium text-ink2 mb-2">Runs</h3>
           <div class="space-y-1.5 stagger">
             {{range .Runs}}
-            <details class="bg-zinc-800/50 border border-zinc-800 rounded-lg group hover:border-zinc-700 transition-colors">
-              <summary class="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none hover:bg-zinc-800/40 transition-colors">
-                <svg class="w-3.5 h-3.5 text-zinc-600 transition-transform chev shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+            <details class="bg-card border border-bd rounded-lg group hover:border-bd transition-colors">
+              <summary class="flex items-center gap-3 px-4 py-2.5 cursor-pointer select-none hover:bg-sf transition-colors">
+                <svg class="w-3.5 h-3.5 text-ink3/40 transition-transform chev shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
                 <span class="{{runStatusColor .Status}} inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium shrink-0">{{.Status}}</span>
-                <a href="/runs/{{.ID}}" class="font-mono text-xs text-zinc-400 hover:text-indigo-400 transition-colors" onclick="event.stopPropagation()">{{truncate .ID 8}}</a>
-                <span class="text-xs text-zinc-500">{{.Mode}}</span>
+                <a href="/runs/{{.ID}}" class="font-mono text-xs text-ink3 hover:text-ac-t transition-colors" onclick="event.stopPropagation()">{{truncate .ID 8}}</a>
+                <span class="text-xs text-ink3/50">{{.Mode}}</span>
                 <span class="flex-1"></span>
-                <span class="text-xs text-zinc-500 tabular-nums">{{formatCost .TotalCostUSD}}</span>
-                <span class="text-[11px] text-zinc-600 tabular-nums">{{timeAgo .StartedAt}}</span>
+                <span class="text-xs text-ink3/50 tabular-nums">{{formatCost .TotalCostUSD}}</span>
+                <span class="text-[11px] text-ink3/40 tabular-nums">{{timeAgo .StartedAt}}</span>
               </summary>
               {{if .Diff}}
-              <div class="border-t border-zinc-800 p-3 overflow-x-auto">
-                <table class="text-xs font-mono leading-relaxed w-full border-collapse">{{range diffLines .Diff}}<tr class="{{.Class}}"><td class="select-none text-right text-zinc-600 px-1.5 w-[1%] whitespace-nowrap border-r border-zinc-800/50">{{.OldNum}}</td><td class="select-none text-right text-zinc-600 px-1.5 w-[1%] whitespace-nowrap border-r border-zinc-800/50">{{.NewNum}}</td><td class="select-none text-center w-4 {{if eq .Gutter "+"}}text-emerald-500{{else if eq .Gutter "-"}}text-red-500{{else}}text-indigo-400{{end}}">{{.Gutter}}</td><td class="diff-code px-2 whitespace-pre">{{.Content}}</td></tr>{{end}}</table>
+              <div class="border-t border-bd p-3 overflow-x-auto">
+                <table class="text-xs font-mono leading-relaxed w-full border-collapse">{{range diffLines .Diff}}<tr class="{{.Class}}"><td class="select-none text-right text-ink3/40 px-1.5 w-[1%] whitespace-nowrap border-r border-bd/50">{{.OldNum}}</td><td class="select-none text-right text-ink3/40 px-1.5 w-[1%] whitespace-nowrap border-r border-bd/50">{{.NewNum}}</td><td class="select-none text-center w-4 {{if eq .Gutter "+"}}text-emerald-500{{else if eq .Gutter "-"}}text-red-500{{else}}text-ac-t{{end}}">{{.Gutter}}</td><td class="diff-code px-2 whitespace-pre">{{.Content}}</td></tr>{{end}}</table>
               </div>
               {{end}}
             </details>
@@ -70,24 +70,24 @@
 
         <!-- Comments -->
         <div>
-          <h3 class="text-[13px] font-medium text-zinc-300 mb-2">Comments</h3>
+          <h3 class="text-[13px] font-medium text-ink2 mb-2">Comments</h3>
           <div class="space-y-2 mb-3 stagger">
             {{range .Comments}}
-            <div class="bg-zinc-800/40 border border-zinc-800 rounded-lg px-4 py-3 hover:border-zinc-700 transition-colors">
+            <div class="bg-sf border border-bd rounded-lg px-4 py-3 hover:border-bd transition-colors">
               <div class="flex items-center gap-2 mb-1.5">
-                <span class="text-xs font-medium text-zinc-300">{{.Author}}</span>
-                <span class="text-[11px] text-zinc-600">{{timeAgo .CreatedAt}}</span>
+                <span class="text-xs font-medium text-ink2">{{.Author}}</span>
+                <span class="text-[11px] text-ink3/40">{{timeAgo .CreatedAt}}</span>
               </div>
-              <div class="text-[13px] text-zinc-400 whitespace-pre-wrap leading-relaxed">{{.Body}}</div>
+              <div class="text-[13px] text-ink3 whitespace-pre-wrap leading-relaxed">{{.Body}}</div>
             </div>
             {{end}}
           </div>
 
-          <form method="POST" action="/issues/{{.Issue.Key}}" class="bg-zinc-800/40 border border-zinc-800 rounded-lg p-3">
+          <form method="POST" action="/issues/{{.Issue.Key}}" class="bg-sf border border-bd rounded-lg p-3">
             <input type="hidden" name="action" value="comment">
-            <textarea name="body" rows="2" placeholder="Add a comment..." class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 outline-none focus:ring-1 focus:ring-indigo-500 resize-none transition-shadow mb-2"></textarea>
+            <textarea name="body" rows="2" placeholder="Add a comment..." class="w-full bg-sf border border-bd rounded-md px-3 py-2 text-sm text-ink placeholder-ink3/30 outline-none focus:ring-1 focus:ring-ac resize-none transition-shadow mb-2"></textarea>
             <div class="flex justify-end">
-              <button type="submit" class="px-3 py-1.5 rounded-md text-xs font-medium bg-zinc-700 text-zinc-200 hover:bg-zinc-600 active:scale-[0.97] transition-all">Comment</button>
+              <button type="submit" class="px-3 py-1.5 rounded-md text-xs font-medium bg-bd text-ink hover:bg-ink3/40 active:scale-[0.97] transition-all">Comment</button>
             </div>
           </form>
         </div>
@@ -95,10 +95,10 @@
 
       <!-- Sidebar -->
       <div class="w-56 shrink-0 space-y-3">
-        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Status</div>
+        <div class="bg-card border border-bd rounded-lg p-3">
+          <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Status</div>
           <form method="POST" action="/issues/{{.Issue.Key}}">
-            <select name="status" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+            <select name="status" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac cursor-pointer">
               <option value="todo" {{if eq .Issue.Status "todo"}}selected{{end}}>Todo</option>
               <option value="in_progress" {{if eq .Issue.Status "in_progress"}}selected{{end}}>In Progress</option>
               <option value="in_review" {{if eq .Issue.Status "in_review"}}selected{{end}}>In Review</option>
@@ -108,36 +108,36 @@
               <option value="cancelled" {{if eq .Issue.Status "cancelled"}}selected{{end}}>Cancelled</option>
               <option value="wont_do" {{if eq .Issue.Status "wont_do"}}selected{{end}}>Won't Do</option>
             </select>
-            <button type="submit" class="mt-1.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium bg-zinc-700 text-zinc-200 hover:bg-zinc-600 active:scale-[0.97] transition-all">Update</button>
+            <button type="submit" class="mt-1.5 w-full px-2.5 py-1.5 rounded-md text-xs font-medium bg-bd text-ink hover:bg-ink3/40 active:scale-[0.97] transition-all">Update</button>
           </form>
         </div>
 
-        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Assignee</div>
+        <div class="bg-card border border-bd rounded-lg p-3">
+          <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Assignee</div>
           {{if .Assignee}}
-          <a href="/agents/{{.Assignee.Slug}}" class="text-[13px] text-indigo-400 hover:text-indigo-300 transition-colors">{{.Assignee.Name}}</a>
-          <div class="text-[11px] text-zinc-500 mt-0.5">{{.Assignee.ArchetypeSlug}}</div>
+          <a href="/agents/{{.Assignee.Slug}}" class="text-[13px] text-ac-t hover:text-ac-t transition-colors">{{.Assignee.Name}}</a>
+          <div class="text-[11px] text-ink3/50 mt-0.5">{{.Assignee.ArchetypeSlug}}</div>
           {{else}}
-          <span class="text-xs text-zinc-500">Unassigned</span>
+          <span class="text-xs text-ink3/50">Unassigned</span>
           {{end}}
           <form method="POST" action="/issues/{{.Issue.Key}}" class="mt-2">
             <input type="hidden" name="action" value="assign">
-            <select name="assignee_slug" onchange="this.form.submit()" class="w-full bg-zinc-900 border border-zinc-700 rounded-md px-2.5 py-1.5 text-xs text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer">
+            <select name="assignee_slug" onchange="this.form.submit()" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac cursor-pointer">
               <option value="">Reassign...</option>
               {{range .Agents}}<option value="{{.Slug}}">{{.Name}}</option>{{end}}
             </select>
           </form>
         </div>
 
-        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Priority</div>
+        <div class="bg-card border border-bd rounded-lg p-3">
+          <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Priority</div>
           <span class="text-[13px] {{priorityColor .Issue.Priority}}">{{if gt .Issue.Priority 0}}{{priorityLabel .Issue.Priority}}{{else}}None{{end}}</span>
         </div>
 
         {{if .Issue.ParentIssueKey}}
-        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-          <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-1.5">Parent</div>
-          <a href="/issues/{{deref .Issue.ParentIssueKey}}" class="text-[13px] text-indigo-400 font-mono hover:text-indigo-300 transition-colors">{{deref .Issue.ParentIssueKey}}</a>
+        <div class="bg-card border border-bd rounded-lg p-3">
+          <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Parent</div>
+          <a href="/issues/{{deref .Issue.ParentIssueKey}}" class="text-[13px] text-ac-t font-mono hover:text-ac-t transition-colors">{{deref .Issue.ParentIssueKey}}</a>
         </div>
         {{end}}
 
@@ -145,21 +145,21 @@
         <div class="space-y-1.5">
           <form method="POST" action="/issues/{{.Issue.Key}}">
             <input type="hidden" name="action" value="restart">
-            <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-[0.97] text-zinc-300 text-xs px-3 py-2 rounded-md transition-all">
+            <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-sf border border-bd hover:bg-bd active:scale-[0.97] text-ink2 text-xs px-3 py-2 rounded-md transition-all">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/></svg>
               Restart
             </button>
           </form>
           <form method="POST" action="/issues/{{.Issue.Key}}" onsubmit="return confirm('Are you sure you want to cancel this issue?')">
             <input type="hidden" name="action" value="cancel">
-            <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-zinc-800 border border-zinc-700 hover:bg-red-950/40 hover:border-red-800/50 hover:text-red-400 active:scale-[0.97] text-zinc-400 text-xs px-3 py-2 rounded-md transition-all">
+            <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-sf border border-bd hover:bg-red-950/40 hover:border-red-800/50 hover:text-red-400 active:scale-[0.97] text-ink3 text-xs px-3 py-2 rounded-md transition-all">
               <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
               Cancel
             </button>
           </form>
         </div>
 
-        <div class="text-[11px] text-zinc-600 space-y-0.5 pt-1">
+        <div class="text-[11px] text-ink3/40 space-y-0.5 pt-1">
           <div>Created {{timeAgo .Issue.CreatedAt}}</div>
           <div>Updated {{timeAgo .Issue.UpdatedAt}}</div>
         </div>

@@ -1,55 +1,55 @@
 {{template "head" .}}
 {{template "nav" .}}
-<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8">
+<main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
   <div class="max-w-6xl mx-auto">
 
     <div class="mb-8">
-      <h1 class="text-lg font-semibold text-zinc-100 tracking-tight">Dashboard</h1>
-      <p class="text-[13px] text-zinc-500 mt-0.5">Organization overview</p>
+      <h1 class="text-lg font-semibold text-ink tracking-tight">Dashboard</h1>
+      <p class="text-[13px] text-ink3/50 mt-0.5">Organization overview</p>
     </div>
 
     <!-- Stats -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8 stagger">
-      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
-        <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Agents</div>
+      <div class="bg-card border border-bd rounded-lg p-4 hover:border-bd transition-colors">
+        <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider">Agents</div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span class="text-2xl font-semibold text-zinc-100 tabular-nums">{{.Stats.ActiveAgents}}</span>
-          <span class="text-xs text-zinc-500">/ {{.Stats.TotalAgents}}</span>
+          <span class="text-2xl font-semibold text-ink tabular-nums">{{.Stats.ActiveAgents}}</span>
+          <span class="text-xs text-ink3/50">/ {{.Stats.TotalAgents}}</span>
         </div>
       </div>
-      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
-        <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Open Issues</div>
+      <div class="bg-card border border-bd rounded-lg p-4 hover:border-bd transition-colors">
+        <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider">Open Issues</div>
         <div class="mt-2 flex items-baseline gap-1.5">
-          <span class="text-2xl font-semibold text-zinc-100 tabular-nums">{{.Stats.OpenIssues}}</span>
-          <span class="text-xs text-zinc-500">/ {{.Stats.TotalIssues}}</span>
+          <span class="text-2xl font-semibold text-ink tabular-nums">{{.Stats.OpenIssues}}</span>
+          <span class="text-xs text-ink3/50">/ {{.Stats.TotalIssues}}</span>
         </div>
       </div>
-      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
-        <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Running</div>
+      <div class="bg-card border border-bd rounded-lg p-4 hover:border-bd transition-colors">
+        <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider">Running</div>
         <div class="mt-2">
           <span class="text-2xl font-semibold text-blue-400 tabular-nums">{{.Stats.RunningRuns}}</span>
         </div>
       </div>
-      <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 hover:border-zinc-700 transition-colors">
-        <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Cost Today</div>
+      <div class="bg-card border border-bd rounded-lg p-4 hover:border-bd transition-colors">
+        <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider">Cost Today</div>
         <div class="mt-2">
-          <span class="text-2xl font-semibold text-zinc-100 tabular-nums">{{formatCost .Stats.TotalCostToday}}</span>
+          <span class="text-2xl font-semibold text-ink tabular-nums">{{formatCost .Stats.TotalCostToday}}</span>
         </div>
       </div>
     </div>
 
     {{if .ActiveBlock}}
-    <a href="/work-blocks/{{.ActiveBlock.ID}}" class="block mb-6 bg-zinc-800/50 border border-indigo-500/30 rounded-lg p-4 hover:border-indigo-500/50 transition-colors group">
+    <a href="/work-blocks/{{.ActiveBlock.ID}}" class="block mb-6 bg-card border border-ac/50 rounded-lg p-4 hover:border-ac/50 transition-colors group">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <span class="{{wbStatusColor .ActiveBlock.Status}} inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium">{{upper .ActiveBlock.Status}}</span>
-          <span class="text-sm font-medium text-zinc-200 group-hover:text-zinc-100">{{.ActiveBlock.Title}}</span>
+          <span class="text-sm font-medium text-ink group-hover:text-ink">{{.ActiveBlock.Title}}</span>
         </div>
         {{if .ActiveBlockStats}}
-        <span class="text-xs text-zinc-500 tabular-nums">{{.ActiveBlockStats.IssuesCompleted}}/{{.ActiveBlockStats.IssuesPlanned}} issues -- {{formatCost .ActiveBlockStats.TotalCost}}</span>
+        <span class="text-xs text-ink3/50 tabular-nums">{{.ActiveBlockStats.IssuesCompleted}}/{{.ActiveBlockStats.IssuesPlanned}} issues -- {{formatCost .ActiveBlockStats.TotalCost}}</span>
         {{end}}
       </div>
-      {{if .ActiveBlock.Goal}}<p class="text-[12px] text-zinc-500 mt-1.5">{{truncate .ActiveBlock.Goal 120}}</p>{{end}}
+      {{if .ActiveBlock.Goal}}<p class="text-[12px] text-ink3/50 mt-1.5">{{truncate .ActiveBlock.Goal 120}}</p>{{end}}
     </a>
     {{end}}
 
@@ -57,21 +57,21 @@
       <!-- Recent Issues -->
       <div class="lg:col-span-2">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-[13px] font-medium text-zinc-300">Recent Issues</h2>
-          <a href="/issues" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">View all</a>
+          <h2 class="text-[13px] font-medium text-ink2">Recent Issues</h2>
+          <a href="/issues" class="text-xs text-ink3/50 hover:text-ink2 transition-colors">View all</a>
         </div>
-        <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg divide-y divide-zinc-800/60 overflow-hidden fade-in">
+        <div class="bg-card border border-bd rounded-lg divide-y divide-sf overflow-hidden fade-in">
           {{range .Issues}}
-          <a href="/issues/{{.Key}}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800/40 transition-all group">
+          <a href="/issues/{{.Key}}" class="flex items-center gap-3 px-4 py-2.5 hover:bg-sf transition-all group">
             <span class="{{statusColor .Status}} inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0">{{statusIcon .Status}}</span>
-            <span class="font-mono text-xs text-zinc-500 w-14 shrink-0">{{.Key}}</span>
-            <span class="text-[13px] text-zinc-200 flex-1 truncate group-hover:text-zinc-100" title="{{.Title}}">{{.Title}}</span>
+            <span class="font-mono text-xs text-ink3/50 w-14 shrink-0">{{.Key}}</span>
+            <span class="text-[13px] text-ink flex-1 truncate group-hover:text-ink" title="{{.Title}}">{{.Title}}</span>
             {{if gt .Priority 0}}<span class="text-[11px] {{priorityColor .Priority}} shrink-0">{{priorityLabel .Priority}}</span>{{end}}
-            {{if .AssigneeName}}<span class="text-[11px] text-zinc-500 shrink-0">{{.AssigneeName}}</span>{{end}}
-            <span class="text-[11px] text-zinc-500 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
+            {{if .AssigneeName}}<span class="text-[11px] text-ink3/50 shrink-0">{{.AssigneeName}}</span>{{end}}
+            <span class="text-[11px] text-ink3/50 shrink-0 tabular-nums">{{timeAgo .CreatedAt}}</span>
           </a>
           {{else}}
-          <div class="px-4 py-10 text-center text-sm text-zinc-500">No issues yet. Create one to get started.</div>
+          <div class="px-4 py-10 text-center text-sm text-ink3/50">No issues yet. Create one to get started.</div>
           {{end}}
         </div>
       </div>
@@ -79,25 +79,25 @@
       <!-- Agents -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-[13px] font-medium text-zinc-300">Agents</h2>
-          <a href="/agents" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">Manage</a>
+          <h2 class="text-[13px] font-medium text-ink2">Agents</h2>
+          <a href="/agents" class="text-xs text-ink3/50 hover:text-ink2 transition-colors">Manage</a>
         </div>
         <div class="space-y-1.5 stagger">
           {{range .Agents}}
-          <a href="/agents/{{.Slug}}" class="flex items-center gap-3 bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-3 hover:border-zinc-700 transition-all hover:translate-x-0.5 group">
-            <div class="w-2 h-2 rounded-full shrink-0 {{if .Active}}bg-emerald-400{{else}}bg-zinc-600{{end}}" role="img" aria-label="{{if .Active}}Active{{else}}Inactive{{end}}"></div>
+          <a href="/agents/{{.Slug}}" class="flex items-center gap-3 bg-card border border-bd rounded-lg px-4 py-3 hover:border-bd transition-all hover:translate-x-0.5 group">
+            <div class="w-2 h-2 rounded-full shrink-0 {{if .Active}}bg-emerald-400{{else}}bg-ink3/40{{end}}" role="img" aria-label="{{if .Active}}Active{{else}}Inactive{{end}}"></div>
             <div class="flex-1 min-w-0">
-              <div class="text-[13px] font-medium text-zinc-200 truncate group-hover:text-zinc-100">{{.Name}}</div>
-              <div class="text-[11px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+              <div class="text-[13px] font-medium text-ink truncate group-hover:text-ink">{{.Name}}</div>
+              <div class="text-[11px] text-ink3/50 flex items-center gap-1.5 mt-0.5">
                 <span>{{.ArchetypeSlug}}</span>
-                <span class="text-zinc-700">&middot;</span>
+                <span class="text-ink3/30">&middot;</span>
                 <span>{{.Model}}</span>
-                {{if .HeartbeatEnabled}}<span class="text-zinc-700">&middot;</span><span class="text-emerald-500">heartbeat</span>{{end}}
+                {{if .HeartbeatEnabled}}<span class="text-ink3/30">&middot;</span><span class="text-emerald-500">heartbeat</span>{{end}}
               </div>
             </div>
           </a>
           {{else}}
-          <div class="bg-zinc-800/50 border border-zinc-800 rounded-lg px-4 py-8 text-center text-sm text-zinc-500">No agents configured.</div>
+          <div class="bg-card border border-bd rounded-lg px-4 py-8 text-center text-sm text-ink3/50">No agents configured.</div>
           {{end}}
         </div>
       </div>

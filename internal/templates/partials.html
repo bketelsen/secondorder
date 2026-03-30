@@ -1,17 +1,58 @@
 {{define "head"}}<!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{if .PageTitle}}{{.PageTitle}} - The Last Org{{else}}The Last
       Org{{end}}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            pg:   'rgb(var(--c-pg) / <alpha-value>)',
+            card: 'rgb(var(--c-card) / <alpha-value>)',
+            sf:   'rgb(var(--c-sf) / <alpha-value>)',
+            bd:   'rgb(var(--c-bd) / <alpha-value>)',
+            ink:  'rgb(var(--c-ink) / <alpha-value>)',
+            ink2: 'rgb(var(--c-ink2) / <alpha-value>)',
+            ink3: 'rgb(var(--c-ink3) / <alpha-value>)',
+            ac:   'rgb(var(--c-ac) / <alpha-value>)',
+            'ac-h': 'rgb(var(--c-ac-h) / <alpha-value>)',
+            'ac-t': 'rgb(var(--c-ac-t) / <alpha-value>)',
+            ln:   'rgb(var(--c-ln) / <alpha-value>)',
+            code: 'rgb(var(--c-code) / <alpha-value>)',
+            ov:   'rgb(var(--c-ov) / <alpha-value>)',
+          },
+        },
+      },
+    }
+    </script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+    (function(){var t=localStorage.getItem('tlo-theme')||'light';if(t==='dark')document.documentElement.classList.add('dark');})();
+    </script>
     <style>
-body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+:root {
+  --c-pg: 249 248 243; --c-card: 255 255 255; --c-sf: 241 239 238; --c-bd: 223 223 221;
+  --c-ink: 20 18 17; --c-ink2: 51 49 47; --c-ink3: 48 47 45;
+  --c-ac: 122 223 156; --c-ac-h: 107 207 140; --c-ac-t: 0 159 96;
+  --c-ln: 0 159 96; --c-code: 20 18 17; --c-ov: 20 18 17;
+}
+:root.dark {
+  --c-pg: 9 9 11; --c-card: 24 24 27; --c-sf: 39 39 42; --c-bd: 39 39 42;
+  --c-ink: 228 228 231; --c-ink2: 212 212 216; --c-ink3: 161 161 170;
+  --c-ac: 79 70 229; --c-ac-h: 99 102 241; --c-ac-t: 129 140 248;
+  --c-ln: 99 102 241; --c-code: 9 9 11; --c-ov: 0 0 0;
+}
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
 
 /* Toast animations */
 .toast-enter { animation: toastIn 0.3s cubic-bezier(0.21, 1.02, 0.73, 1) forwards; }
@@ -59,18 +100,18 @@ details[open] .chev { transform: rotate(90deg); }
 .htmx-added { animation: fadeIn 0.2s ease-out; }
 
 /* Skeleton loading pulse */
-.skeleton { background: linear-gradient(90deg, rgb(39 39 42 / 0.5) 25%, rgb(63 63 70 / 0.3) 50%, rgb(39 39 42 / 0.5) 75%);
+.skeleton { background: linear-gradient(90deg, rgb(var(--c-sf)) 25%, rgb(var(--c-pg)) 50%, rgb(var(--c-sf)) 75%);
   background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* Smooth scrollbar for dark theme */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgb(63 63 70 / 0.5); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgb(82 82 91 / 0.7); }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-bd)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink3) / 0.3); }
 
 /* Focus ring */
-.focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(24 24 27), 0 0 0 4px rgb(99 102 241 / 0.5); }
+.focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(var(--c-pg)), 0 0 0 4px rgb(var(--c-ac) / 0.6); }
 
 /* Diff syntax highlighting: let hljs colors override diff row text colors */
 td.diff-code { color: #d4d4d8; }
@@ -82,32 +123,34 @@ td.diff-code .hljs-number, td.diff-code .hljs-literal { color: #6cb6ff; }
 td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
 </style>
   </head>
-  <body class="bg-zinc-950 text-zinc-200 min-h-screen flex">
+  <body class="bg-pg text-ink min-h-screen flex">
+    <!-- Green accent line -->
+    <div class="fixed top-0 left-0 right-0 h-[3px] bg-ln z-50"></div>
     {{end}}
 
     {{define "nav"}}
     <!-- Mobile hamburger button -->
     <button id="mobile-menu-btn" onclick="toggleMobileNav()"
-      class="md:hidden fixed top-4 left-4 z-50 p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors">
+      class="md:hidden fixed top-4 left-4 z-50 p-2 bg-card border border-bd rounded-lg text-ink3 hover:text-ink transition-colors">
       <svg class="w-5 h-5" fill="none" stroke="currentColor"
         viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round"
           stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
     </button>
     <!-- Mobile overlay -->
     <div id="mobile-nav-overlay"
-      class="md:hidden fixed inset-0 bg-black/50 z-40 hidden"
+      class="md:hidden fixed inset-0 bg-code/15 z-40 hidden"
       onclick="closeMobileNav()"></div>
     <nav id="sidebar" aria-label="Main navigation"
-      class="w-56 bg-zinc-900 border-r border-zinc-800 flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 transition-transform duration-200">
+      class="w-56 bg-pg border-r border-bd flex flex-col fixed h-full z-40 -translate-x-full md:translate-x-0 transition-transform duration-200 mt-[3px]">
       <div
-        class="px-4 py-5 border-b border-zinc-800 flex items-center justify-between">
+        class="px-4 py-5 border-b border-bd flex items-center justify-between">
         <div>
-          <h1 class="text-sm font-semibold tracking-wide text-zinc-100">The Last
+          <h1 class="text-sm font-semibold tracking-wide text-ink">The Last
             Org</h1>
-          <p class="text-xs text-zinc-500 mt-0.5">Recursive governance layer</p>
+          <p class="text-xs text-ink3/50 mt-0.5">Recursive governance layer</p>
         </div>
         <button onclick="closeMobileNav()"
-          class="md:hidden p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
+          class="md:hidden p-1 text-ink3 hover:text-ink transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
@@ -116,7 +159,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
       </div>
       <div class="flex-1 py-3 px-2 space-y-0.5">
         <a href="/dashboard"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -125,7 +168,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Dashboard
         </a>
         <a href="/issues"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -134,7 +177,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Issues
         </a>
         <a href="/work-blocks"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -143,7 +186,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Work Blocks
         </a>
         <a href="/agents"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -152,7 +195,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Agents
         </a>
         <a href="/policies"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -161,7 +204,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Policies
         </a>
         <a href="/activity"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none" stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
               stroke-linejoin="round" stroke-width="1.5"
@@ -169,7 +212,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Activity
         </a>
         <a href="/settings"
-          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors">
+          class="flex items-center gap-2 px-3 py-1.5 rounded text-sm text-ink3 hover:text-ink hover:bg-sf transition-colors">
           <svg class="w-4 h-4" aria-hidden="true" fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"><path stroke-linecap="round"
@@ -178,11 +221,11 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
           Settings
         </a>
       </div>
-      <div class="px-3 py-3 border-t border-zinc-800">
+      <div class="px-3 py-3 border-t border-bd">
         <button onclick="togglePalette()"
-          class="w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 active:scale-[0.97] transition-all">
+          class="w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-ink3/50 hover:text-ink hover:bg-sf active:scale-[0.97] transition-all">
           <kbd
-            class="px-1 py-0.5 bg-zinc-800 rounded text-[10px]">&#8984;K</kbd>
+            class="px-1 py-0.5 bg-sf rounded text-[10px]">&#8984;K</kbd>
           Search
         </button>
       </div>
@@ -198,13 +241,13 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
     <div id="palette" class="fixed inset-0 z-50 hidden"
       onclick="if(event.target===this)closePalette()">
       <div id="palette-overlay"
-        class="absolute inset-0 bg-black/60 backdrop-blur-sm palette-overlay"></div>
+        class="absolute inset-0 bg-code/20 backdrop-blur-sm palette-overlay"></div>
       <div id="palette-panel"
-        class="palette-panel relative mx-auto mt-24 w-full max-w-lg bg-zinc-900 rounded-lg border border-zinc-700 shadow-2xl overflow-hidden">
+        class="palette-panel relative mx-auto mt-24 w-full max-w-lg bg-card rounded-lg border border-bd shadow-2xl overflow-hidden">
         <input id="palette-input" type="text"
           aria-label="Search issues and agents"
           placeholder="Search issues and agents..."
-          class="w-full px-4 py-3 bg-transparent text-zinc-100 text-sm outline-none border-b border-zinc-800 placeholder:text-zinc-500 focus-ring"
+          class="w-full px-4 py-3 bg-transparent text-ink text-sm outline-none border-b border-bd placeholder:text-ink3/50 focus-ring"
           oninput="searchPalette(this.value)" onkeydown="paletteNav(event)">
         <div id="palette-results" class="max-h-72 overflow-y-auto py-1"></div>
       </div>
@@ -237,12 +280,12 @@ connectSSE();
 /* Toast with slide-out dismiss */
 function showToast(title, body, href) {
   const el = document.createElement('div');
-  el.className = 'toast-enter bg-zinc-800 border border-zinc-700 rounded-lg p-3 shadow-lg cursor-pointer hover:bg-zinc-750 transition-colors';
-  el.innerHTML = '<div class="flex items-start justify-between gap-2"><div><div class="text-xs font-medium text-zinc-200"></div><div class="text-xs text-zinc-400 mt-0.5"></div></div>' +
-    '<button class="text-zinc-600 hover:text-zinc-400 transition-colors text-sm leading-none mt-0.5" onclick="event.stopPropagation();dismissToast(this.closest(\'[class*=toast]\'))">&times;</button></div>' +
-    '<div class="toast-progress mt-2 h-px bg-zinc-700 rounded-full overflow-hidden"><div style="animation:shrink 5s linear forwards" class="h-full bg-indigo-500/50"></div></div>';
-  el.querySelector('.text-zinc-200').textContent = title;
-  el.querySelector('.text-zinc-400').textContent = body;
+  el.className = 'toast-enter bg-card border border-bd rounded-lg p-3 shadow-lg cursor-pointer hover:bg-sf transition-colors';
+  el.innerHTML = '<div class="flex items-start justify-between gap-2"><div><div class="toast-title text-xs font-medium text-ink"></div><div class="toast-body text-xs text-ink3 mt-0.5"></div></div>' +
+    '<button class="text-ink3/40 hover:text-ink3 transition-colors text-sm leading-none mt-0.5" onclick="event.stopPropagation();dismissToast(this.closest(\'[class*=toast]\'))">&times;</button></div>' +
+    '<div class="toast-progress mt-2 h-px bg-bd rounded-full overflow-hidden"><div style="animation:shrink 5s linear forwards" class="h-full bg-ac/50"></div></div>';
+  el.querySelector('.toast-title').textContent = title;
+  el.querySelector('.toast-body').textContent = body;
   if (href) el.onclick = () => window.location.href = href;
   document.getElementById('toasts').appendChild(el);
   setTimeout(() => dismissToast(el), 5000);
@@ -295,10 +338,10 @@ async function searchPalette(q) {
   let html = '';
   (items || []).forEach((it, i) => {
     const icon = it.type === 'issue' ? '&#9633;' : '&#9678;';
-    html += '<a href="' + escapeHtml(it.url) + '" class="pal-item flex items-center gap-2 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800 rounded-md mx-1 transition-colors" data-idx="' + i + '">' +
-      '<span class="text-zinc-500">' + icon + '</span><span class="text-zinc-400 font-mono text-xs">' + escapeHtml(it.key) + '</span><span>' + escapeHtml(it.title) + '</span></a>';
+    html += '<a href="' + escapeHtml(it.url) + '" class="pal-item flex items-center gap-2 px-4 py-2 text-sm text-ink2 hover:bg-sf rounded-md mx-1 transition-colors" data-idx="' + i + '">' +
+      '<span class="text-ink3/50">' + icon + '</span><span class="text-ink3 font-mono text-xs">' + escapeHtml(it.key) + '</span><span>' + escapeHtml(it.title) + '</span></a>';
   });
-  html += '<div class="border-t border-zinc-800 mt-1 pt-1"><a href="/issues" data-create-title="" class="pal-item flex items-center gap-2 px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-800 rounded-md mx-1 transition-colors"><span class="text-indigo-400">+</span> Create issue</a></div>';
+  html += '<div class="border-t border-bd mt-1 pt-1"><a href="/issues" data-create-title="" class="pal-item flex items-center gap-2 px-4 py-2 text-sm text-ink3 hover:bg-sf rounded-md mx-1 transition-colors"><span class="text-ac-t">+</span> Create issue</a></div>';
   const container = document.getElementById('palette-results');
   container.innerHTML = html;
   const createLink = container.querySelector('[data-create-title]');
@@ -321,8 +364,8 @@ function paletteNav(e) {
   else if (e.key === 'ArrowUp') { e.preventDefault(); palIdx = Math.max(palIdx - 1, 0); }
   else if (e.key === 'Enter' && palIdx >= 0) { e.preventDefault(); items[palIdx].click(); return; }
   items.forEach((el, i) => {
-    el.classList.toggle('bg-zinc-800', i === palIdx);
-    el.classList.toggle('text-zinc-100', i === palIdx);
+    el.classList.toggle('bg-sf', i === palIdx);
+    el.classList.toggle('text-ink', i === palIdx);
   });
   if (palIdx >= 0) items[palIdx].scrollIntoView({ block: 'nearest' });
 }
@@ -407,7 +450,7 @@ if (!document.getElementById('toast-progress-style')) {
     const href = a.getAttribute('href');
     if (path === href || (href !== '/dashboard' && path.startsWith(href))) {
       a.setAttribute('aria-current', 'page');
-      a.classList.add('bg-zinc-800', 'text-zinc-200');
+      a.classList.add('bg-sf', 'text-ink');
     }
   });
 })();
