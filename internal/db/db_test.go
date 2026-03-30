@@ -1241,3 +1241,141 @@ func TestGetActiveBoardPoliciesOnlyReturnsActive(t *testing.T) {
 		}
 	}
 }
+
+func TestGetStuckIssues(t *testing.T) {
+	d := testDB(t)
+	a := makeAgent("stuck-agent")
+	d.CreateAgent(a)
+
+	// in_progress with assignee -> stuck
+	i1 := makeIssue("SO-1")
+	i1.Status = models.StatusInProgress
+	i1.AssigneeAgentID = &a.ID
+	d.CreateIssue(i1)
+
+	// todo with assignee -> stuck
+	i2 := makeIssue("SO-2")
+	i2.Status = models.StatusTodo
+	i2.AssigneeAgentID = &a.ID
+	d.CreateIssue(i2)
+
+	// done with assignee -> not stuck
+	i3 := makeIssue("SO-3")
+	i3.Status = models.StatusDone
+	i3.AssigneeAgentID = &a.ID
+	d.CreateIssue(i3)
+
+	// todo without assignee -> not stuck
+	i4 := makeIssue("SO-4")
+	i4.Status = models.StatusTodo
+	d.CreateIssue(i4)
+
+	issues, err := d.GetStuckIssues()
+	if err != nil {
+		t.Fatalf("get stuck issues: %v", err)
+	}
+	if len(issues) != 2 {
+		t.Fatalf("expected 2 stuck issues, got %d", len(issues))
+	}
+}
+
+func TestMarkStaleRunsFailed(t *testing.T) {
+	d := testDB(t)
+	a := makeAgent("stale-agent")
+	d.CreateAgent(a)
+
+	d.CreateRun(&models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusRunning})
+	d.CreateRun(&models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusRunning})
+	d.CreateRun(&models.Run{AgentID: a.ID, Mode: "task", Status: models.RunStatusCompleted})
+
+	affected, err := d.MarkStaleRunsFailed()
+	if err != nil {
+		t.Fatalf("mark stale: %v", err)
+	}
+	if affected != 2 {
+		t.Errorf("expected 2 affected, got %d", affected)
+	}
+
+	count, _ := d.CountRunningRuns()
+	if count != 0 {
+		t.Errorf("expected 0 running runs after cleanup, got %d", count)
+	}
+}
+
+// --- ActivityTimeline48h ---
+
+func TestActivityTimeline48hEmpty(t *testing.T) {
+	d := testDB(t)
+	entries, err := d.ActivityTimeline48h()
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if entries == nil {
+		entries = []TimelineEntry{}
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(entries))
+	}
+}
+
+func TestActivityTimeline48hReturnsRecentActivity(t *testing.T) {
+	d := testDB(t)
+
+	// Log several activities
+	for i := 0; i < 3; i++ {
+		if err := d.LogActivity("created", "issue", "SO-1", nil, "test"); err != nil {
+			t.Fatalf("log activity: %v", err)
+		}
+	}
+	if err := d.LogActivity("updated", "issue", "SO-2", nil, "other"); err != nil {
+		t.Fatalf("log activity: %v", err)
+	}
+
+	entries, err := d.ActivityTimeline48h()
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected entries, got none")
+	}
+
+	// Verify counts: SO-1 should have count=3, SO-2 count=1
+	counts := map[string]int{}
+	for _, e := range entries {
+		counts[e.EntityID] += e.Count
+	}
+	if counts["SO-1"] != 3 {
+		t.Errorf("SO-1 count = %d, want 3", counts["SO-1"])
+	}
+	if counts["SO-2"] != 1 {
+		t.Errorf("SO-2 count = %d, want 1", counts["SO-2"])
+	}
+}
+
+func TestActivityTimeline48hFields(t *testing.T) {
+	d := testDB(t)
+	if err := d.LogActivity("viewed", "work_block", "wb-abc", nil, ""); err != nil {
+		t.Fatalf("log: %v", err)
+	}
+
+	entries, err := d.ActivityTimeline48h()
+	if err != nil {
+		t.Fatalf("timeline: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one entry")
+	}
+	e := entries[0]
+	if e.Hour == "" {
+		t.Error("Hour is empty")
+	}
+	if e.EntityType != "work_block" {
+		t.Errorf("EntityType = %q, want work_block", e.EntityType)
+	}
+	if e.EntityID != "wb-abc" {
+		t.Errorf("EntityID = %q, want wb-abc", e.EntityID)
+	}
+	if e.Count != 1 {
+		t.Errorf("Count = %d, want 1", e.Count)
+	}
+}

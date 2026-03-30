@@ -17,6 +17,12 @@
     </div>
     {{end}}
 
+    {{if .Success}}
+    <div class="mb-4 bg-green-500/10 border border-green-500/30 rounded-lg px-4 py-3">
+      <span class="text-sm text-green-400">{{.Success}}</span>
+    </div>
+    {{end}}
+
     <!-- Backlog Input -->
     <div class="mb-5">
       <form method="POST" action="/issues" class="relative">
@@ -74,7 +80,8 @@
     <!-- Status Tabs -->
     <div class="flex gap-1 mb-4 border-b border-bd pb-3">
       {{$cs := .CurrentStatus}}
-      <a href="/issues" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs ""}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">All</a>
+      <a href="/issues" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs ""}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">Queue</a>
+      <a href="/issues?status=all" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs "all"}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">All</a>
       <a href="/issues?status=todo" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs "todo"}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">Todo</a>
       <a href="/issues?status=in_progress" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs "in_progress"}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">In Progress</a>
       <a href="/issues?status=in_review" class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors {{if eq $cs "in_review"}}bg-sf text-ink{{else}}text-ink3/50 hover:text-ink2 hover:bg-card{{end}}">Review</a>

@@ -41,3 +41,4 @@ Desktop.ini
 *.swo
 *~
 !cmd/
+artifact-docs/backlog.md

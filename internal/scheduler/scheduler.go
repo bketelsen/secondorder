@@ -610,6 +610,62 @@ BASE_URL: http://localhost:%d
 	return buf.String()
 }
 
+// RecoverStuckIssues finds issues stuck in in_progress/todo after a restart and re-wakes their agents.
+func (s *Scheduler) RecoverStuckIssues() int {
+	// Mark any stale "running" runs as failed since the process restarted
+	staleCount, err := s.db.MarkStaleRunsFailed()
+	if err != nil {
+		log.WithError(err).Error("scheduler: failed to mark stale runs")
+	} else if staleCount > 0 {
+		log.WithField("count", staleCount).Info("scheduler: marked stale runs as failed")
+	}
+
+	issues, err := s.db.GetStuckIssues()
+	if err != nil {
+		log.WithError(err).Error("scheduler: failed to get stuck issues")
+		return 0
+	}
+	if len(issues) == 0 {
+		return 0
+	}
+
+	// Deduplicate by agent: only wake each agent once (for their highest-priority issue)
+	woken := map[string]bool{}
+	recovered := 0
+	for i := range issues {
+		issue := &issues[i]
+		if issue.AssigneeAgentID == nil || woken[*issue.AssigneeAgentID] {
+			continue
+		}
+
+		agent, err := s.db.GetAgent(*issue.AssigneeAgentID)
+		if err != nil || !agent.Active {
+			continue
+		}
+
+		// Check budget before waking
+		over, _ := s.db.IsAgentOverBudget(agent.ID)
+		if over {
+			log.WithFields(log.Fields{"agent": agent.Name, "issue": issue.Key}).
+				Warn("scheduler: agent over budget, skipping recovery")
+			continue
+		}
+
+		log.WithFields(log.Fields{"agent": agent.Name, "issue": issue.Key, "status": issue.Status}).
+			Info("scheduler: recovering stuck issue")
+		s.WakeAgent(agent, issue)
+		woken[agent.ID] = true
+		recovered++
+	}
+
+	if recovered > 0 {
+		details := fmt.Sprintf("Recovered %d stuck issues on startup (%d stale runs marked failed)", recovered, staleCount)
+		s.db.LogActivity("recovery", "system", "startup", nil, details)
+	}
+
+	return recovered
+}
+
 // StartHeartbeatLoop runs heartbeat checks on a timer (safety net)
 func (s *Scheduler) StartHeartbeatLoop(interval time.Duration) {
 	go func() {

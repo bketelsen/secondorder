@@ -69,13 +69,20 @@ func (u *UI) ListIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	status := r.URL.Query().Get("status")
-	issues, _ := u.db.ListIssues(status, 100)
+	dbStatus := status
+	if status == "" {
+		dbStatus = "todo,in_progress,in_review"
+	} else if status == "all" {
+		dbStatus = ""
+	}
+	issues, _ := u.db.ListIssues(dbStatus, 100)
 	agents, _ := u.db.ListAgents()
 	u.render(w, "issues", map[string]any{
 		"Issues":        issues,
 		"Agents":        agents,
 		"CurrentStatus": status,
 		"Error":         r.URL.Query().Get("error"),
+		"Success":       r.URL.Query().Get("success"),
 	})
 }
 
@@ -140,47 +147,32 @@ func (u *UI) submitBacklog(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key, err := u.db.NextIssueKey()
+	backlogPath := filepath.Join("artifact-docs", "backlog.md")
+	if err := os.MkdirAll("artifact-docs", 0o755); err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+create+backlog+directory", http.StatusSeeOther)
+		return
+	}
+
+	entry := fmt.Sprintf("\n---\n\n### %s\n\n%s\n", time.Now().Format("2006-01-02 15:04:05"), text)
+
+	f, err := os.OpenFile(backlogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		http.Redirect(w, r, "/issues?error=Failed+to+generate+issue+key", http.StatusSeeOther)
+		http.Redirect(w, r, "/issues?error=Failed+to+write+backlog", http.StatusSeeOther)
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(entry); err != nil {
+		http.Redirect(w, r, "/issues?error=Failed+to+write+backlog", http.StatusSeeOther)
 		return
 	}
 
-	// First line (up to 120 chars) as title, full text as description
-	title := text
-	if idx := strings.IndexByte(title, '\n'); idx > 0 {
-		title = title[:idx]
-	}
-	if len(title) > 120 {
-		title = title[:120]
+	// Wake CEO to triage the backlog
+	if ceo, err := u.db.GetCEOAgent(); err == nil && u.sched != nil {
+		go u.sched.WakeAgentHeartbeat(ceo)
 	}
 
-	issue := &models.Issue{
-		ID:          uuid.New().String(),
-		Key:         key,
-		Title:       title,
-		Description: text,
-		Status:      models.StatusTodo,
-	}
-
-	// Always assign to CEO for triage
-	var ceo *models.Agent
-	if c, err := u.db.GetCEOAgent(); err == nil {
-		issue.AssigneeAgentID = &c.ID
-		ceo = c
-	}
-
-	if err := u.db.CreateIssue(issue); err != nil {
-		http.Redirect(w, r, "/issues?error=Failed+to+create+issue", http.StatusSeeOther)
-		return
-	}
-	u.db.LogActivity("backlog", "issue", key, nil, title)
-
-	if ceo != nil && u.wake != nil {
-		go u.wake(ceo, issue)
-	}
-
-	http.Redirect(w, r, "/issues/"+key, http.StatusSeeOther)
+	http.Redirect(w, r, "/issues?success=Submitted+to+backlog+for+triage", http.StatusSeeOther)
 }
 
 func (u *UI) IssueDetail(w http.ResponseWriter, r *http.Request) {
@@ -608,34 +600,41 @@ func (u *UI) updateWorkBlockUI(w http.ResponseWriter, r *http.Request, id string
 
 func (u *UI) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	logs, _ := u.db.ListActivity(200)
-	heatmap, _ := u.db.ActivityHeatmap(91)
+	entries, _ := u.db.ActivityTimeline48h()
 
-	type HeatmapDay struct {
-		Date  string
-		Count int
-		Level int // 0-4 intensity
+	type TimelineCell struct {
+		EntityType string
+		EntityID   string
+		Count      int
+		Level      int // 0-4
+	}
+	type TimelineHour struct {
+		Label string // "Mar 29 14:00"
+		Cells []TimelineCell
 	}
 
-	now := time.Now()
-	today := now.Truncate(24 * time.Hour)
-	endDay := today.AddDate(0, 0, int(6-today.Weekday()))
-	startDay := endDay.AddDate(0, 0, -13*7+1)
+	// Build hour buckets for last 48h
+	now := time.Now().Truncate(time.Hour)
+	hours := make([]string, 48)
+	hourLabels := make([]string, 48)
+	for i := 47; i >= 0; i-- {
+		t := now.Add(-time.Duration(i) * time.Hour)
+		hours[47-i] = t.Format("2006-01-02 15:00")
+		hourLabels[47-i] = t.Format("Jan 2 15:04")
+	}
 
+	// Index entries by hour
+	hourMap := map[string][]TimelineCell{}
 	maxCount := 0
-	for _, c := range heatmap {
-		if c > maxCount {
-			maxCount = c
+	for _, e := range entries {
+		if e.Count > maxCount {
+			maxCount = e.Count
 		}
 	}
-
-	var weeks [][]HeatmapDay
-	var week []HeatmapDay
-	for d := startDay; !d.After(endDay); d = d.AddDate(0, 0, 1) {
-		ds := d.Format("2006-01-02")
-		cnt := heatmap[ds]
+	for _, e := range entries {
 		level := 0
-		if cnt > 0 && maxCount > 0 {
-			ratio := float64(cnt) / float64(maxCount)
+		if e.Count > 0 && maxCount > 0 {
+			ratio := float64(e.Count) / float64(maxCount)
 			switch {
 			case ratio > 0.75:
 				level = 4
@@ -647,19 +646,38 @@ func (u *UI) ActivityPage(w http.ResponseWriter, r *http.Request) {
 				level = 1
 			}
 		}
-		week = append(week, HeatmapDay{Date: ds, Count: cnt, Level: level})
-		if len(week) == 7 {
-			weeks = append(weeks, week)
-			week = nil
-		}
+		hourMap[e.Hour] = append(hourMap[e.Hour], TimelineCell{
+			EntityType: e.EntityType,
+			EntityID:   e.EntityID,
+			Count:      e.Count,
+			Level:      level,
+		})
 	}
-	if len(week) > 0 {
-		weeks = append(weeks, week)
+
+	var timeline []TimelineHour
+	for i, h := range hours {
+		timeline = append(timeline, TimelineHour{
+			Label: hourLabels[i],
+			Cells: hourMap[h],
+		})
+	}
+
+	// Collect unique entity IDs (ordered by first appearance)
+	seen := map[string]bool{}
+	var entities []string
+	for _, th := range timeline {
+		for _, c := range th.Cells {
+			if !seen[c.EntityID] {
+				seen[c.EntityID] = true
+				entities = append(entities, c.EntityID)
+			}
+		}
 	}
 
 	u.render(w, "activity", map[string]any{
-		"Logs":         logs,
-		"HeatmapWeeks": weeks,
+		"Logs":     logs,
+		"Timeline": timeline,
+		"Entities": entities,
 	})
 }
 

@@ -5,19 +5,40 @@
 
     <div class="mb-6">
       <h1 class="text-lg font-semibold text-ink tracking-tight">Activity</h1>
-      <p class="text-[13px] text-ink3/50 mt-0.5">Recent actions across the organization</p>
+      <p class="text-[13px] text-ink3/50 mt-0.5">Last 48 hours of activity by issue</p>
     </div>
 
-    {{if .HeatmapWeeks}}
+    {{if .Timeline}}
     <div class="bg-card border border-bd rounded-lg p-4 mb-6 fade-in overflow-x-auto">
-      <p class="text-[11px] text-ink3/50 mb-3 font-medium uppercase tracking-wider">13 weeks</p>
-      <div class="flex gap-[3px]">
-        {{range .HeatmapWeeks}}
-        <div class="flex flex-col gap-[3px]">
-          {{range .}}
-          <div class="w-[11px] h-[11px] rounded-[2px] heatmap-{{.Level}}" title="{{.Date}}: {{.Count}} actions"></div>
-          {{end}}
+      <p class="text-[11px] text-ink3/50 mb-3 font-medium uppercase tracking-wider">Last 48 hours</p>
+      <div class="timeline-grid" style="display:grid; grid-template-columns: auto repeat({{len .Timeline}}, 1fr); gap:0;">
+        {{/* Row headers: entity IDs */}}
+        <div></div>
+        {{range $i, $h := .Timeline}}
+        <div style="font-size:9px; color:rgb(var(--c-ink3)/0.4); padding:0 1px; text-align:center; white-space:nowrap; height:40px; overflow:hidden; writing-mode:vertical-lr; transform:rotate(180deg);">{{if eq 0 (mod $i 6)}}{{$h.Label}}{{end}}</div>
+        {{end}}
+
+        {{range $entity := $.Entities}}
+        <div style="font-size:11px; padding:3px 8px 3px 0; white-space:nowrap; color:rgb(var(--c-ink3)/0.7); font-family:ui-monospace,monospace;">
+          <a href="/issues/{{$entity}}" class="text-ac-t hover:underline">{{$entity}}</a>
         </div>
+        {{range $hour := $.Timeline}}
+          {{$found := false}}
+          {{$count := 0}}
+          {{$level := 0}}
+          {{range $hour.Cells}}
+            {{if eq .EntityID $entity}}
+              {{$found = true}}
+              {{$count = .Count}}
+              {{$level = .Level}}
+            {{end}}
+          {{end}}
+          {{if $found}}
+          <div class="heatmap-{{$level}}" style="min-width:10px; min-height:18px; margin:1px; border-radius:2px; cursor:default;" title="{{$entity}}: {{$count}} actions ({{$hour.Label}})"></div>
+          {{else}}
+          <div style="min-width:10px; min-height:18px; margin:1px; border-radius:2px; background:rgb(var(--c-sf)/0.3);"></div>
+          {{end}}
+        {{end}}
         {{end}}
       </div>
       <div class="flex items-center gap-1.5 mt-3">

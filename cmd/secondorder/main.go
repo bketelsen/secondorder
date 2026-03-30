@@ -190,6 +190,11 @@ func main() {
 	// Apply org template on first run
 	applyStartupTemplate(database)
 
+	// Recover stuck issues from previous run
+	if recovered := sched.RecoverStuckIssues(); recovered > 0 {
+		log.Infof("startup: recovered %d stuck issues", recovered)
+	}
+
 	// Heartbeat loop
 	sched.StartHeartbeatLoop(1 * time.Hour)
 

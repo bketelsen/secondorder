@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"math"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -27,6 +28,7 @@ func Parse() (*template.Template, error) {
 		"work_block_detail.html",
 		"policies.html",
 		"activity.html",
+		"crons.html",
 		"settings.html",
 		"not_found.html",
 	}
@@ -69,6 +71,7 @@ var funcMap = template.FuncMap{
 	"deref":          deref,
 	"diffLines":      diffLines,
 	"nl2br":          nl2br,
+	"linkTickets":    linkTickets,
 	"upper":          strings.ToUpper,
 	"shortID": func(s string) string {
 		if len(s) > 8 {
@@ -79,6 +82,7 @@ var funcMap = template.FuncMap{
 	"seq": seq,
 	"add": func(a, b int) int { return a + b },
 	"sub": func(a, b int) int { return a - b },
+	"mod": func(a, b int) int { return a % b },
 	"wbStatusColor": wbStatusColor,
 	"derefTime": func(t *time.Time) time.Time {
 		if t == nil {
@@ -318,6 +322,17 @@ func diffLines(diff string) []DiffLine {
 
 func nl2br(s string) template.HTML {
 	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(s), "\n", "<br>"))
+}
+
+var ticketRe = regexp.MustCompile(`SO-\d+`)
+
+func linkTickets(s string) template.HTML {
+	escaped := template.HTMLEscapeString(s)
+	escaped = strings.ReplaceAll(escaped, "\n", "<br>")
+	result := ticketRe.ReplaceAllStringFunc(escaped, func(m string) string {
+		return `<a href="/issues/` + m + `" class="text-ac-t hover:underline">` + m + `</a>`
+	})
+	return template.HTML(result)
 }
 
 func wbStatusColor(s string) string {

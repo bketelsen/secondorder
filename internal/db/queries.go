@@ -190,8 +190,13 @@ func (d *DB) ListIssues(status string, limit int) ([]models.Issue, error) {
 
 	var args []any
 	if status != "" {
-		query += " WHERE i.status = ?"
-		args = append(args, status)
+		statuses := strings.Split(status, ",")
+		placeholders := strings.Repeat("?,", len(statuses))
+		placeholders = placeholders[:len(placeholders)-1]
+		query += " WHERE i.status IN (" + placeholders + ")"
+		for _, s := range statuses {
+			args = append(args, s)
+		}
 	}
 	query += " ORDER BY i.priority DESC, i.created_at DESC"
 	if limit > 0 {
@@ -436,6 +441,40 @@ func (d *DB) CountRunningRuns() (int, error) {
 	return count, err
 }
 
+// GetStuckIssues returns issues in in_progress or todo state that have an assigned agent.
+func (d *DB) GetStuckIssues() ([]models.Issue, error) {
+	rows, err := d.Query(`SELECT i.id, i.key, i.title, i.description, i.status, i.priority, i.assignee_agent_id,
+		i.parent_issue_key, i.work_block_id, i.started_at, i.completed_at, i.created_at, i.updated_at
+		FROM issues i
+		WHERE i.status IN ('in_progress', 'todo')
+		AND i.assignee_agent_id IS NOT NULL
+		ORDER BY i.priority DESC, i.created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var issues []models.Issue
+	for rows.Next() {
+		var i models.Issue
+		if err := rows.Scan(&i.ID, &i.Key, &i.Title, &i.Description, &i.Status, &i.Priority, &i.AssigneeAgentID,
+			&i.ParentIssueKey, &i.WorkBlockID, &i.StartedAt, &i.CompletedAt, &i.CreatedAt, &i.UpdatedAt); err != nil {
+			return nil, err
+		}
+		issues = append(issues, i)
+	}
+	return issues, rows.Err()
+}
+
+// MarkStaleRunsFailed marks any runs still in "running" status as failed (for crash recovery).
+func (d *DB) MarkStaleRunsFailed() (int64, error) {
+	res, err := d.Exec(`UPDATE runs SET status='failed', completed_at=datetime('now') WHERE status='running'`)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func scanRuns(rows *sql.Rows) ([]models.Run, error) {
 	var runs []models.Run
 	for rows.Next() {
@@ -655,25 +694,35 @@ func (d *DB) ListActivity(limit int) ([]models.ActivityLog, error) {
 	return logs, rows.Err()
 }
 
-func (d *DB) ActivityHeatmap(days int) (map[string]int, error) {
-	since := time.Now().AddDate(0, 0, -days).Format("2006-01-02")
-	rows, err := d.Query(`SELECT date(created_at) as day, count(*) as cnt
-		FROM activity_log WHERE date(created_at) >= ? GROUP BY day`, since)
+type TimelineEntry struct {
+	Hour       string // "2006-01-02 15:00"
+	EntityType string
+	EntityID   string
+	Count      int
+}
+
+func (d *DB) ActivityTimeline48h() ([]TimelineEntry, error) {
+	since := time.Now().Add(-48 * time.Hour).Format("2006-01-02 15:04:05")
+	rows, err := d.Query(`SELECT strftime('%Y-%m-%d %H:00', created_at) as hour,
+		entity_type, entity_id, count(*) as cnt
+		FROM activity_log
+		WHERE created_at >= ?
+		GROUP BY hour, entity_type, entity_id
+		ORDER BY hour ASC, cnt DESC`, since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	m := make(map[string]int)
+	var entries []TimelineEntry
 	for rows.Next() {
-		var day string
-		var cnt int
-		if err := rows.Scan(&day, &cnt); err != nil {
+		var e TimelineEntry
+		if err := rows.Scan(&e.Hour, &e.EntityType, &e.EntityID, &e.Count); err != nil {
 			return nil, err
 		}
-		m[day] = cnt
+		entries = append(entries, e)
 	}
-	return m, rows.Err()
+	return entries, rows.Err()
 }
 
 // --- Dashboard ---
