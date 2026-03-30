@@ -217,6 +217,20 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, issue)
 }
 
+func (a *API) DeleteIssue(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	if _, err := a.db.GetIssue(key); err != nil {
+		jsonError(w, "issue not found", http.StatusNotFound)
+		return
+	}
+	if err := a.db.DeleteIssue(key); err != nil {
+		jsonError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	a.db.LogActivity("delete", "issue", key, nil, "")
+	jsonOK(w, map[string]string{"deleted": key})
+}
+
 func (a *API) CreateComment(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	agent := agentFromContext(r.Context())

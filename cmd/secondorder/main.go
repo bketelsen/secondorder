@@ -148,6 +148,9 @@ func main() {
 	mux.HandleFunc("POST /policies", ui.PoliciesPage)
 	mux.HandleFunc("GET /settings", ui.Settings)
 	mux.HandleFunc("POST /settings", ui.Settings)
+	mux.HandleFunc("GET /crons", ui.ListCrons)
+	mux.HandleFunc("POST /crons", ui.ListCrons)
+	mux.HandleFunc("POST /crons/{id}", ui.CronAction)
 	mux.HandleFunc("GET /runs/{id}", ui.RunDetail)
 	mux.HandleFunc("GET /runs/{id}/stdout", ui.RunStdout)
 	mux.HandleFunc("GET /search", ui.SearchIssuesAndAgents)
@@ -158,7 +161,7 @@ func main() {
 	})
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			http.NotFound(w, r)
+			ui.NotFound(w, r)
 			return
 		}
 		http.Redirect(w, r, "/dashboard", http.StatusFound)

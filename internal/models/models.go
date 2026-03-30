@@ -178,6 +178,18 @@ type AgentConfigRevision struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type CronJob struct {
+	ID        string     `json:"id"`
+	AgentID   string     `json:"agent_id"`
+	AgentName string     `json:"agent_name,omitempty"`
+	Task      string     `json:"task"`
+	Frequency string     `json:"frequency"`
+	Active    bool       `json:"active"`
+	LastRunAt *time.Time `json:"last_run_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
 type RunEvent struct {
 	ID        string    `json:"id"`
 	RunID     string    `json:"run_id"`

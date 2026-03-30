@@ -177,6 +177,11 @@ func (d *DB) GetIssue(key string) (*models.Issue, error) {
 	return i, nil
 }
 
+func (d *DB) DeleteIssue(key string) error {
+	_, err := d.Exec(`DELETE FROM issues WHERE key=?`, key)
+	return err
+}
+
 func (d *DB) ListIssues(status string, limit int) ([]models.Issue, error) {
 	query := `SELECT i.id, i.key, i.title, i.description, i.status, i.priority, i.assignee_agent_id,
 		i.parent_issue_key, i.work_block_id, i.started_at, i.completed_at, i.created_at, i.updated_at,
