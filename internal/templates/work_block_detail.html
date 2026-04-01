@@ -137,6 +137,12 @@
               <dt class="text-ink3/50">Created</dt>
               <dd class="text-ink3 tabular-nums">{{timeAgo .Block.CreatedAt}}</dd>
             </div>
+            {{if .Block.ActivatedAt}}
+            <div class="flex justify-between">
+              <dt class="text-ink3/50">Activated</dt>
+              <dd class="text-ink3 tabular-nums">{{timeAgo (derefTime .Block.ActivatedAt)}}</dd>
+            </div>
+            {{end}}
             <div class="flex justify-between">
               <dt class="text-ink3/50">Updated</dt>
               <dd class="text-ink3 tabular-nums">{{timeAgo .Block.UpdatedAt}}</dd>

@@ -653,6 +653,63 @@ func TestSettingsVersion(t *testing.T) {
 	}
 }
 
+func TestAgentUI_CreateAndUpdate(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	// 1. Create agent
+	form := "name=Test+Runner+Agent&runner=codex&model=gpt-4o&api_key_env=MY_KEY&archetype_slug=fullstack"
+	req := httptest.NewRequest("POST", "/agents", strings.NewReader(form))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	// We need a dummy archetype file
+	os.MkdirAll("archetypes", 0755)
+	os.WriteFile("archetypes/fullstack.md", []byte("test"), 0644)
+	defer os.RemoveAll("archetypes")
+
+	ui.ListAgents(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("create: status = %d, want 303", w.Code)
+	}
+
+	agent, err := d.GetAgentBySlug("test-runner-agent")
+	if err != nil {
+		t.Fatalf("get agent: %v", err)
+	}
+	if agent.Runner != "codex" {
+		t.Errorf("runner = %q, want codex", agent.Runner)
+	}
+	if agent.ApiKeyEnv != "MY_KEY" {
+		t.Errorf("api_key_env = %q, want MY_KEY", agent.ApiKeyEnv)
+	}
+
+	// 2. Update agent (change runner and clear api_key_env)
+	updateForm := "name=Updated+Name&runner=antigravity&model=default&api_key_env="
+	req = httptest.NewRequest("POST", "/agents/test-runner-agent", strings.NewReader(updateForm))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("slug", "test-runner-agent")
+	w = httptest.NewRecorder()
+
+	ui.AgentDetail(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("update: status = %d, want 303", w.Code)
+	}
+
+	agent, err = d.GetAgentBySlug("test-runner-agent")
+	if err != nil {
+		t.Fatalf("get updated agent: %v", err)
+	}
+	if agent.Runner != "antigravity" {
+		t.Errorf("updated runner = %q, want antigravity", agent.Runner)
+	}
+	if agent.ApiKeyEnv != "" {
+		t.Errorf("updated api_key_env = %q, want empty", agent.ApiKeyEnv)
+	}
+}
+
 // Ensure DB path comes from temp for test isolation
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())

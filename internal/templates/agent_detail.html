@@ -19,6 +19,7 @@
             <div class="flex items-center gap-2.5">
               <h1 class="text-xl font-semibold text-ink">{{.Agent.Name}}</h1>
               <span class="px-2 py-0.5 rounded text-[11px] bg-sf text-ink3">{{.Agent.ArchetypeSlug}}</span>
+              <span class="px-2 py-0.5 rounded text-[11px] bg-sf text-ink3 font-mono">{{.Agent.Runner}} / {{.Agent.Model}}</span>
               <div class="w-2 h-2 rounded-full {{if .Agent.Active}}bg-emerald-400{{else}}bg-ink3/40{{end}}" role="img" aria-label="{{if .Agent.Active}}Active{{else}}Inactive{{end}}"></div>
             </div>
             <div class="text-xs text-ink3/50 mt-0.5 font-mono">{{.Agent.Slug}}</div>

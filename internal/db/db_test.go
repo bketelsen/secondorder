@@ -1010,6 +1010,72 @@ func TestListWorkBlocks(t *testing.T) {
 	}
 }
 
+func TestWorkBlockActivatedAt(t *testing.T) {
+	d := testDB(t)
+	wb := &models.WorkBlock{Title: "T", Goal: "G", AcceptanceCriteria: "must work"}
+	if err := d.CreateWorkBlock(wb); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// ActivatedAt is nil before activation
+	got, _ := d.GetWorkBlock(wb.ID)
+	if got.ActivatedAt != nil {
+		t.Error("ActivatedAt should be nil before activation")
+	}
+	if got.AcceptanceCriteria != "must work" {
+		t.Errorf("AcceptanceCriteria = %q, want 'must work'", got.AcceptanceCriteria)
+	}
+
+	// Activate: ActivatedAt must be stamped
+	if err := d.UpdateWorkBlockStatus(wb.ID, models.WBStatusActive); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	activated, _ := d.GetWorkBlock(wb.ID)
+	if activated.ActivatedAt == nil {
+		t.Fatal("ActivatedAt not stamped on activation")
+	}
+	firstActivatedAt := *activated.ActivatedAt
+
+	// Transition ready -> active (reactivation): preserve existing activated_at
+	d.UpdateWorkBlockStatus(wb.ID, models.WBStatusReady)
+	d.UpdateWorkBlockStatus(wb.ID, models.WBStatusActive)
+	reactivated, _ := d.GetWorkBlock(wb.ID)
+	if reactivated.ActivatedAt == nil {
+		t.Fatal("ActivatedAt lost on reactivation")
+	}
+	if !reactivated.ActivatedAt.Equal(firstActivatedAt) {
+		t.Errorf("ActivatedAt changed on reactivation: was %v, got %v", firstActivatedAt, *reactivated.ActivatedAt)
+	}
+}
+
+func TestWorkBlockCycleTimeUsesActivatedAt(t *testing.T) {
+	d := testDB(t)
+	wb := &models.WorkBlock{Title: "T", Goal: "G"}
+	d.CreateWorkBlock(wb)
+	d.UpdateWorkBlockStatus(wb.ID, models.WBStatusActive)
+	d.UpdateWorkBlockStatus(wb.ID, models.WBStatusReady)
+	d.UpdateWorkBlockStatus(wb.ID, models.WBStatusShipped)
+
+	stats, err := d.GetWorkBlockStats(wb.ID)
+	if err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	// CycleTimeHours should be >= 0 (measures activated_at to completed_at)
+	if stats.CycleTimeHours < 0 {
+		t.Errorf("CycleTimeHours = %f, want >= 0", stats.CycleTimeHours)
+	}
+
+	// Verify it uses activated_at not created_at by checking the shipped block
+	shipped, _ := d.GetWorkBlock(wb.ID)
+	if shipped.ActivatedAt == nil || shipped.CompletedAt == nil {
+		t.Fatal("expected both ActivatedAt and CompletedAt to be set")
+	}
+	expected := shipped.CompletedAt.Sub(*shipped.ActivatedAt).Hours()
+	if stats.CycleTimeHours != expected {
+		t.Errorf("CycleTimeHours = %f, want %f (activated_at-based)", stats.CycleTimeHours, expected)
+	}
+}
+
 // TestOpenWithEnvOverride verifies the DB can be opened from a temp file
 func TestOpenWithTempFile(t *testing.T) {
 	f, err := os.CreateTemp("", "so-test-*.db")
