@@ -52,7 +52,7 @@
         if (!modelSelect) return;
         const currentModel = modelSelect.dataset.current;
         modelSelect.innerHTML = '';
-        
+
         let models = [];
         if (runner === 'claude_code') {
             models = [
@@ -71,7 +71,7 @@
                 {val: 'default', label: 'Default'}
             ];
         }
-        
+
         models.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.val;
@@ -87,6 +87,11 @@
   --c-ink: 20 18 17; --c-ink2: 51 49 47; --c-ink3: 48 47 45;
   --c-ac: 122 223 156; --c-ac-h: 107 207 140; --c-ac-t: 0 159 96;
   --c-ln: 0 159 96; --c-code: 20 18 17; --c-ov: 20 18 17;
+  /* Layout */
+  --layout-sidebar: 14rem;   /* w-56, 224px */
+  --layout-max-w: 72rem;     /* max-w-6xl, 1152px */
+  --layout-pad: 2rem;        /* p-8, 32px */
+  --layout-pad-top-mob: 4rem; /* pt-16 on mobile, 64px */
 }
 :root.dark {
   --c-pg: 9 9 11; --c-card: 24 24 27; --c-sf: 39 39 42; --c-bd: 39 39 42;
@@ -196,7 +201,7 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
         <div>
           <h1 class="text-sm font-semibold tracking-wide text-ink">Second
             Order</h1>
-          <p class="text-xs text-ink3/50 mt-0.5">Recursive governance stack</p>
+          <p class="text-xs text-ink3/50 mt-0.5">Zero human company</p>
         </div>
         <button onclick="closeMobileNav()"
           class="md:hidden p-1 text-ink3 hover:text-ink transition-colors">
@@ -295,13 +300,18 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
 
     {{define "foot"}}
     <!-- Confirm modal -->
-    <div id="confirm-modal" class="fixed inset-0 z-50 hidden" onclick="if(event.target===this)closeConfirm(false)">
-      <div class="absolute inset-0 bg-code/30 backdrop-blur-sm palette-overlay"></div>
-      <div class="confirm-panel relative mx-auto mt-32 w-full max-w-sm bg-card rounded-lg border border-bd shadow-2xl p-5">
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden"
+      onclick="if(event.target===this)closeConfirm(false)">
+      <div
+        class="absolute inset-0 bg-code/30 backdrop-blur-sm palette-overlay"></div>
+      <div
+        class="confirm-panel relative mx-auto mt-32 w-full max-w-sm bg-card rounded-lg border border-bd shadow-2xl p-5">
         <p id="confirm-message" class="text-sm text-ink mb-5"></p>
         <div class="flex justify-end gap-2">
-          <button onclick="closeConfirm(false)" class="px-4 py-2 text-sm font-medium rounded-md bg-sf border border-bd text-ink3 hover:text-ink hover:bg-pg transition-colors">Cancel</button>
-          <button id="confirm-ok" onclick="closeConfirm(true)" class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
+          <button onclick="closeConfirm(false)"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-sf border border-bd text-ink3 hover:text-ink hover:bg-pg transition-colors">Cancel</button>
+          <button id="confirm-ok" onclick="closeConfirm(true)"
+            class="px-4 py-2 text-sm font-medium rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors">Delete</button>
         </div>
       </div>
     </div>
