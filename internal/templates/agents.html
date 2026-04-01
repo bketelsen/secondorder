@@ -39,6 +39,21 @@
             </select>
           </div>
         </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="agent-runner" class="block text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Runner</label>
+            <select id="agent-runner" name="runner" onchange="updateModels('agent-runner', 'agent-model')" class="w-full bg-sf border border-bd rounded-md px-3 py-2 text-sm text-ink outline-none focus:ring-1 focus:ring-ac">
+              <option value="claude_code">Claude Code</option>
+              <option value="codex">Codex</option>
+              <option value="antigravity">Antigravity</option>
+            </select>
+          </div>
+          <div>
+            <label for="agent-api-key-env" class="block text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">API Key Env Var (Optional)</label>
+            <input id="agent-api-key-env" name="api_key_env" placeholder="e.g. OPENAI_API_KEY" class="w-full bg-sf border border-bd rounded-md px-3 py-2 text-sm text-ink placeholder-ink3/30 outline-none focus:ring-1 focus:ring-ac transition-shadow">
+            <p class="text-[10px] text-ink3/30 mt-1">If blank, the runner's default provider key is used.</p>
+          </div>
+        </div>
         <div class="grid grid-cols-3 gap-4">
           <div>
             <label for="agent-model" class="block text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1.5">Model</label>

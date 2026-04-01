@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -9,6 +10,16 @@ import (
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/models"
 )
+
+// makeStub writes a shell script to dir/name that echoes its args and selected env vars.
+func makeStub(t *testing.T, dir, name string) {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	script := "#!/bin/sh\necho ARGS: $@\nenv\n"
+	if err := os.WriteFile(p, []byte(script), 0755); err != nil {
+		t.Fatalf("makeStub %s: %v", name, err)
+	}
+}
 
 func testDB(t *testing.T) *db.DB {
 	t.Helper()
@@ -415,5 +426,195 @@ func TestCaptureGitDiffInvalidDir(t *testing.T) {
 	diff := captureGitDiff("/nonexistent/path")
 	if diff != "" {
 		t.Errorf("expected empty diff for invalid dir, got %q", diff)
+	}
+}
+
+// --- Runner dispatch tests ---
+
+// TestCodexDispatch verifies execCodex uses the codex binary.
+func TestCodexDispatch(t *testing.T) {
+	d := testDB(t)
+	s := New(d, 9001, t.TempDir())
+
+	binDir := t.TempDir()
+	makeStub(t, binDir, "codex")
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	agent := &models.Agent{
+		Name: "Codex", Slug: "codex", ArchetypeSlug: "worker",
+		Runner: "codex", Model: "o4-mini",
+		WorkingDir: t.TempDir(), MaxTurns: 10, TimeoutSec: 10, Active: true,
+	}
+	d.CreateAgent(agent)
+
+	key := "test-api-key"
+	out, err := s.execCodex(t.Context(), agent, key, "run1", "SO-1", "do work")
+	// stub exits 0, so err should be nil
+	if err != nil {
+		t.Fatalf("execCodex: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "--approval-mode") {
+		t.Errorf("expected --approval-mode in args, got: %s", out)
+	}
+	if !strings.Contains(out, "full-auto") {
+		t.Errorf("expected full-auto in args, got: %s", out)
+	}
+	if !strings.Contains(out, "-p") {
+		t.Errorf("expected -p prompt flag, got: %s", out)
+	}
+}
+
+// TestAntigravityDispatch verifies execAntigravity uses the antigravity binary.
+func TestAntigravityDispatch(t *testing.T) {
+	d := testDB(t)
+	binDir := t.TempDir()
+	archetypeDir := t.TempDir()
+
+	// Write an archetype file so --system-prompt-file gets appended
+	archetypeFile := filepath.Join(archetypeDir, "worker.md")
+	if err := os.WriteFile(archetypeFile, []byte("you are a worker"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(d, 9001, archetypeDir)
+
+	makeStub(t, binDir, "antigravity")
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	agent := &models.Agent{
+		Name: "AG", Slug: "ag", ArchetypeSlug: "worker",
+		Runner: "antigravity", Model: "default",
+		WorkingDir: t.TempDir(), MaxTurns: 5, TimeoutSec: 10, Active: true,
+	}
+	d.CreateAgent(agent)
+
+	out, err := s.execAntigravity(t.Context(), agent, "key", "run2", "SO-2", "do stuff")
+	if err != nil {
+		t.Fatalf("execAntigravity: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "--non-interactive") {
+		t.Errorf("expected --non-interactive, got: %s", out)
+	}
+	if !strings.Contains(out, "--system-prompt-file") {
+		t.Errorf("expected --system-prompt-file, got: %s", out)
+	}
+	if !strings.Contains(out, "worker.md") {
+		t.Errorf("expected worker.md in args, got: %s", out)
+	}
+}
+
+// TestAntigravityNoSystemPromptFileWhenMissing verifies --system-prompt-file is NOT added when archetype is absent.
+func TestAntigravityNoSystemPromptFileWhenMissing(t *testing.T) {
+	d := testDB(t)
+	binDir := t.TempDir()
+	s := New(d, 9001, t.TempDir()) // empty archetype dir
+
+	makeStub(t, binDir, "antigravity")
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+
+	agent := &models.Agent{
+		Name: "AG2", Slug: "ag2", ArchetypeSlug: "nofile",
+		Runner: "antigravity", WorkingDir: t.TempDir(), MaxTurns: 5, TimeoutSec: 10,
+	}
+
+	out, err := s.execAntigravity(t.Context(), agent, "key", "run3", "SO-3", "task")
+	if err != nil {
+		t.Fatalf("execAntigravity: %v\noutput: %s", err, out)
+	}
+	if strings.Contains(out, "--system-prompt-file") {
+		t.Errorf("should not pass --system-prompt-file when archetype missing, got: %s", out)
+	}
+}
+
+// TestCodexEnvVars verifies OPENAI_API_KEY and CODEX_SYSTEM_PROMPT are injected.
+func TestCodexEnvVars(t *testing.T) {
+	d := testDB(t)
+	archetypeDir := t.TempDir()
+	archetypeFile := filepath.Join(archetypeDir, "worker.md")
+	if err := os.WriteFile(archetypeFile, []byte("system instructions"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New(d, 9001, archetypeDir)
+	binDir := t.TempDir()
+	makeStub(t, binDir, "codex")
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	t.Setenv("MY_OPENAI_KEY", "sk-test-openai")
+
+	agent := &models.Agent{
+		Name: "CX", Slug: "cx", ArchetypeSlug: "worker",
+		Runner: "codex", ApiKeyEnv: "MY_OPENAI_KEY",
+		WorkingDir: t.TempDir(), MaxTurns: 5, TimeoutSec: 10,
+	}
+
+	out, err := s.execCodex(t.Context(), agent, "key", "run4", "SO-4", "task")
+	if err != nil {
+		t.Fatalf("execCodex: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "OPENAI_API_KEY=sk-test-openai") {
+		t.Errorf("expected OPENAI_API_KEY in env, got: %s", out)
+	}
+	if !strings.Contains(out, "CODEX_SYSTEM_PROMPT=system instructions") {
+		t.Errorf("expected CODEX_SYSTEM_PROMPT in env, got: %s", out)
+	}
+}
+
+// TestAntigravityEnvVars verifies ANTIGRAVITY_API_KEY is injected.
+func TestAntigravityEnvVars(t *testing.T) {
+	d := testDB(t)
+	s := New(d, 9001, t.TempDir())
+	binDir := t.TempDir()
+	makeStub(t, binDir, "antigravity")
+	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
+	t.Setenv("MY_AG_KEY", "ag-secret-key")
+
+	agent := &models.Agent{
+		Name: "AG3", Slug: "ag3", ArchetypeSlug: "worker",
+		Runner: "antigravity", ApiKeyEnv: "MY_AG_KEY",
+		WorkingDir: t.TempDir(), MaxTurns: 5, TimeoutSec: 10,
+	}
+
+	out, err := s.execAntigravity(t.Context(), agent, "key", "run5", "SO-5", "task")
+	if err != nil {
+		t.Fatalf("execAntigravity: %v\noutput: %s", err, out)
+	}
+	if !strings.Contains(out, "ANTIGRAVITY_API_KEY=ag-secret-key") {
+		t.Errorf("expected ANTIGRAVITY_API_KEY in env, got: %s", out)
+	}
+}
+
+// TestTokenZeroingForNonClaude verifies token counts are zeroed for non-Claude runners.
+func TestTokenZeroingForNonClaude(t *testing.T) {
+	tests := []struct {
+		runner   string
+		wantZero bool
+	}{
+		{"claude_code", false},
+		{"", false},
+		{"codex", true},
+		{"antigravity", true},
+		{"gemini", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.runner, func(t *testing.T) {
+			agent := &models.Agent{Runner: tt.runner}
+			stdout := `{"type":"result","result":{"input_tokens":100,"output_tokens":50,"total_cost_usd":0.01}}`
+
+			tokens := parseTokenUsage(stdout)
+			if agent.Runner != "claude_code" && agent.Runner != "" {
+				tokens = tokenUsage{}
+			}
+
+			if tt.wantZero {
+				if tokens.InputTokens != 0 || tokens.OutputTokens != 0 {
+					t.Errorf("expected 0 tokens for runner %q, got %+v", tt.runner, tokens)
+				}
+			} else {
+				if tokens.InputTokens == 0 || tokens.OutputTokens == 0 {
+					t.Errorf("expected non-zero tokens for runner %q, got %+v", tt.runner, tokens)
+				}
+			}
+		})
 	}
 }

@@ -359,10 +359,11 @@ func (a *API) ListAgents(w http.ResponseWriter, r *http.Request) {
 		Slug          string `json:"slug"`
 		Name          string `json:"name"`
 		ArchetypeSlug string `json:"archetype_slug"`
+		Runner        string `json:"runner"`
 	}
 	result := make([]slim, len(agents))
 	for i, ag := range agents {
-		result[i] = slim{ag.ID, ag.Slug, ag.Name, ag.ArchetypeSlug}
+		result[i] = slim{ag.ID, ag.Slug, ag.Name, ag.ArchetypeSlug, ag.Runner}
 	}
 	jsonOK(w, result)
 }
@@ -476,8 +477,9 @@ func (a *API) GetWorkBlock(w http.ResponseWriter, r *http.Request) {
 
 func (a *API) CreateWorkBlock(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Title string `json:"title"`
-		Goal  string `json:"goal"`
+		Title              string `json:"title"`
+		Goal               string `json:"goal"`
+		AcceptanceCriteria string `json:"acceptance_criteria"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Title == "" {
 		jsonError(w, "title required", http.StatusBadRequest)
@@ -485,9 +487,10 @@ func (a *API) CreateWorkBlock(w http.ResponseWriter, r *http.Request) {
 	}
 
 	wb := &models.WorkBlock{
-		Title:  body.Title,
-		Goal:   body.Goal,
-		Status: models.WBStatusProposed,
+		Title:              body.Title,
+		Goal:               body.Goal,
+		AcceptanceCriteria: body.AcceptanceCriteria,
+		Status:             models.WBStatusProposed,
 	}
 	if err := a.db.CreateWorkBlock(wb); err != nil {
 		jsonError(w, err.Error(), http.StatusConflict)

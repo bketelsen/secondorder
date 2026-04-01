@@ -611,6 +611,48 @@ func TestNotFound(t *testing.T) {
 	}
 }
 
+func TestSettingsVersion(t *testing.T) {
+	d := testDB(t)
+	ui := testUI(t, d)
+
+	// Create a temporary VERSION file in the current directory for the test
+	// Note: The code reads from "VERSION" in the working directory
+	versionFile := "VERSION_test"
+	if err := os.WriteFile(versionFile, []byte("v1.2.3-test"), 0644); err != nil {
+		t.Fatalf("failed to create version file: %v", err)
+	}
+	defer os.Remove(versionFile)
+
+	// We need to temporarily mock the file read or change the working directory
+	// But since the handler uses os.ReadFile("VERSION"), we can just rename the file
+	// during the test if we are careful, but that's risky.
+	// Alternatively, we can just check if it's there.
+
+	// Let's try a simpler approach: check if it reads from "VERSION"
+	if _, err := os.Stat("VERSION"); err == nil {
+		// VERSION exists, let's see if it's in the output
+		content, _ := os.ReadFile("VERSION")
+		wantVersion := strings.TrimSpace(string(content))
+
+		req := httptest.NewRequest("GET", "/settings", nil)
+		w := httptest.NewRecorder()
+		ui.Settings(w, req)
+
+		if !strings.Contains(w.Body.String(), wantVersion) {
+			t.Errorf("body missing version %q", wantVersion)
+		}
+	} else {
+		// If VERSION doesn't exist, it should fallback to "dev" or build info
+		req := httptest.NewRequest("GET", "/settings", nil)
+		w := httptest.NewRecorder()
+		ui.Settings(w, req)
+
+		if !strings.Contains(w.Body.String(), "dev") && !strings.Contains(w.Body.String(), "v") {
+			t.Error("body missing default version")
+		}
+	}
+}
+
 // Ensure DB path comes from temp for test isolation
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())

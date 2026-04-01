@@ -159,7 +159,24 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 		logEntry.Info("scheduler: spawning agent")
 
 		startTime := time.Now()
-		stdout, err := s.execClaude(ctx, agent, rawKey, runID, issueKey, prompt)
+		var stdout string
+		var err error
+		switch agent.Runner {
+		case "codex":
+			stdout, err = s.execCodex(ctx, agent, rawKey, runID, issueKey, prompt)
+		case "gemini":
+			stdout, err = s.execGemini(ctx, agent, rawKey, runID, issueKey, prompt)
+		case "antigravity":
+			stdout, err = s.execAntigravity(ctx, agent, rawKey, runID, issueKey, prompt)
+		case "claude_code":
+			stdout, err = s.execClaudeCode(ctx, agent, rawKey, runID, issueKey, prompt)
+		default:
+			if agent.Runner == "" {
+				stdout, err = s.execClaudeCode(ctx, agent, rawKey, runID, issueKey, prompt)
+			} else {
+				err = fmt.Errorf("unsupported runner: %s", agent.Runner)
+			}
+		}
 		elapsed := time.Since(startTime)
 
 		status := models.RunStatusCompleted
@@ -171,12 +188,21 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			} else if ctx.Err() == context.Canceled {
 				status = models.RunStatusCancelled
 			} else {
-				logEntry.WithError(err).Error("scheduler: agent failed")
+				// Include the last few lines of stdout in the log for easier debugging
+				lastOutput := stdout
+				lines := strings.Split(strings.TrimSpace(stdout), "\n")
+				if len(lines) > 10 {
+					lastOutput = "... (truncated)\n" + strings.Join(lines[len(lines)-10:], "\n")
+				}
+				logEntry.WithError(err).WithField("output", lastOutput).Error("scheduler: agent failed")
 			}
 		}
 
 		// Parse token usage from stream-json output
 		tokens := parseTokenUsage(stdout)
+		if agent.Runner != "claude_code" && agent.Runner != "" {
+			tokens = tokenUsage{}
+		}
 
 		// Capture git diff
 		diff := captureGitDiff(agent.WorkingDir)
@@ -230,7 +256,7 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 	return runID
 }
 
-func (s *Scheduler) execClaude(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
+func (s *Scheduler) execClaudeCode(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
 	args := []string{
 		"--print",
 		"-p", prompt,
@@ -271,6 +297,166 @@ func (s *Scheduler) execClaude(ctx context.Context, agent *models.Agent, apiKey,
 	)
 
 	// Use liveWriter to stream stdout to DB
+	lw := &liveWriter{
+		db:       s.db,
+		runID:    runID,
+		interval: 2 * time.Second,
+	}
+	cmd.Stdout = lw
+	cmd.Stderr = lw
+
+	err := cmd.Run()
+	lw.Flush()
+	return lw.String(), err
+}
+
+func (s *Scheduler) execCodex(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
+	args := []string{
+		"--approval-mode", "full-auto",
+		"--quiet",
+		"-p", prompt,
+	}
+	if agent.Model != "" && agent.Model != "default" {
+		args = append(args, "--model", agent.Model)
+	}
+
+	cmd := exec.CommandContext(ctx, "codex", args...)
+	cmd.Dir = agent.WorkingDir
+
+	env := os.Environ()
+	env = append(env,
+		fmt.Sprintf("SECONDORDER_AGENT_ID=%s", agent.ID),
+		fmt.Sprintf("SECONDORDER_AGENT_NAME=%s", agent.Name),
+		fmt.Sprintf("SECONDORDER_RUN_ID=%s", runID),
+		fmt.Sprintf("SECONDORDER_API_URL=http://localhost:%d", s.port),
+		fmt.Sprintf("SECONDORDER_ISSUE_KEY=%s", issueKey),
+		fmt.Sprintf("SECONDORDER_ARTIFACT_DOCS=%s", filepath.Join(agent.WorkingDir, "artifact-docs")),
+		fmt.Sprintf("SECONDORDER_API_KEY=%s", apiKey),
+	)
+
+	// Handle API key env override
+	if agent.ApiKeyEnv != "" {
+		if val := os.Getenv(agent.ApiKeyEnv); val != "" {
+			env = append(env, fmt.Sprintf("OPENAI_API_KEY=%s", val))
+		}
+	}
+
+	// Codex system prompt via env
+	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
+	if data, err := os.ReadFile(archetypeFile); err == nil {
+		env = append(env, fmt.Sprintf("CODEX_SYSTEM_PROMPT=%s", string(data)))
+	}
+
+	cmd.Env = env
+
+	lw := &liveWriter{
+		db:       s.db,
+		runID:    runID,
+		interval: 2 * time.Second,
+	}
+	cmd.Stdout = lw
+	cmd.Stderr = lw
+
+	err := cmd.Run()
+	lw.Flush()
+	return lw.String(), err
+}
+
+func (s *Scheduler) execGemini(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
+	// Prepend archetype to prompt since gemini CLI doesn't have a system prompt file flag
+	fullPrompt := prompt
+	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
+	if data, err := os.ReadFile(archetypeFile); err == nil {
+		fullPrompt = fmt.Sprintf("SYSTEM PROMPT:\n%s\n\nUSER PROMPT:\n%s", string(data), prompt)
+	}
+
+	args := []string{
+		"-p", fullPrompt,
+		"--yolo",
+		"--output-format", "stream-json",
+	}
+	if agent.Model != "" {
+		args = append(args, "-m", agent.Model)
+	}
+
+	cmd := exec.CommandContext(ctx, "gemini", args...)
+	cmd.Dir = agent.WorkingDir
+
+	env := os.Environ()
+	env = append(env,
+		fmt.Sprintf("SECONDORDER_AGENT_ID=%s", agent.ID),
+		fmt.Sprintf("SECONDORDER_AGENT_NAME=%s", agent.Name),
+		fmt.Sprintf("SECONDORDER_RUN_ID=%s", runID),
+		fmt.Sprintf("SECONDORDER_API_URL=http://localhost:%d", s.port),
+		fmt.Sprintf("SECONDORDER_ISSUE_KEY=%s", issueKey),
+		fmt.Sprintf("SECONDORDER_ARTIFACT_DOCS=%s", filepath.Join(agent.WorkingDir, "artifact-docs")),
+		fmt.Sprintf("SECONDORDER_API_KEY=%s", apiKey),
+	)
+
+	// Handle API key env override
+	if agent.ApiKeyEnv != "" {
+		if val := os.Getenv(agent.ApiKeyEnv); val != "" {
+			env = append(env, fmt.Sprintf("GEMINI_API_KEY=%s", val))
+		}
+	}
+
+	cmd.Env = env
+
+	lw := &liveWriter{
+		db:       s.db,
+		runID:    runID,
+		interval: 2 * time.Second,
+	}
+	cmd.Stdout = lw
+	cmd.Stderr = lw
+
+	err := cmd.Run()
+	lw.Flush()
+	return lw.String(), err
+}
+
+func (s *Scheduler) execAntigravity(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
+	args := []string{
+		"run",
+		"--non-interactive",
+		"--prompt", prompt,
+		"--max-turns", fmt.Sprintf("%d", agent.MaxTurns),
+	}
+	if agent.Model != "" && agent.Model != "default" {
+		args = append(args, "--model", agent.Model)
+	}
+
+	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
+	if _, err := os.Stat(archetypeFile); err == nil {
+		if abs, err := filepath.Abs(archetypeFile); err == nil {
+			archetypeFile = abs
+		}
+		args = append(args, "--system-prompt-file", archetypeFile)
+	}
+
+	cmd := exec.CommandContext(ctx, "antigravity", args...)
+	cmd.Dir = agent.WorkingDir
+
+	env := os.Environ()
+	env = append(env,
+		fmt.Sprintf("SECONDORDER_AGENT_ID=%s", agent.ID),
+		fmt.Sprintf("SECONDORDER_AGENT_NAME=%s", agent.Name),
+		fmt.Sprintf("SECONDORDER_RUN_ID=%s", runID),
+		fmt.Sprintf("SECONDORDER_API_URL=http://localhost:%d", s.port),
+		fmt.Sprintf("SECONDORDER_ISSUE_KEY=%s", issueKey),
+		fmt.Sprintf("SECONDORDER_ARTIFACT_DOCS=%s", filepath.Join(agent.WorkingDir, "artifact-docs")),
+		fmt.Sprintf("SECONDORDER_API_KEY=%s", apiKey),
+	)
+
+	// Handle API key env override
+	if agent.ApiKeyEnv != "" {
+		if val := os.Getenv(agent.ApiKeyEnv); val != "" {
+			env = append(env, fmt.Sprintf("ANTIGRAVITY_API_KEY=%s", val))
+		}
+	}
+
+	cmd.Env = env
+
 	lw := &liveWriter{
 		db:       s.db,
 		runID:    runID,
@@ -810,16 +996,38 @@ func parseTokenUsage(stdout string) tokenUsage {
 				CacheCreationInputTokens int64   `json:"cache_creation_input_tokens"`
 				TotalCostUSD             float64 `json:"total_cost_usd"`
 			} `json:"result"`
+			Stats struct {
+				InputTokens  int64 `json:"input_tokens"`
+				OutputTokens int64 `json:"output_tokens"`
+				TotalTokens  int64 `json:"total_tokens"`
+				Models       map[string]struct {
+					InputTokens  int64 `json:"input_tokens"`
+					OutputTokens int64 `json:"output_tokens"`
+				} `json:"models"`
+			} `json:"stats"`
 		}
 		if err := json.Unmarshal([]byte(line), &msg); err != nil {
 			continue
 		}
 		if msg.Type == "result" {
-			usage.InputTokens = msg.Result.InputTokens
-			usage.OutputTokens = msg.Result.OutputTokens
-			usage.CacheReadTokens = msg.Result.CacheReadInputTokens
-			usage.CacheCreateTokens = msg.Result.CacheCreationInputTokens
-			usage.TotalCostUSD = msg.Result.TotalCostUSD
+			// Prefer explicit result fields
+			if msg.Result.InputTokens > 0 || msg.Result.OutputTokens > 0 {
+				usage.InputTokens = msg.Result.InputTokens
+				usage.OutputTokens = msg.Result.OutputTokens
+				usage.CacheReadTokens = msg.Result.CacheReadInputTokens
+				usage.CacheCreateTokens = msg.Result.CacheCreationInputTokens
+				usage.TotalCostUSD = msg.Result.TotalCostUSD
+			} else if msg.Stats.InputTokens > 0 || msg.Stats.OutputTokens > 0 {
+				// Fallback to stats top-level
+				usage.InputTokens = msg.Stats.InputTokens
+				usage.OutputTokens = msg.Stats.OutputTokens
+			} else if len(msg.Stats.Models) > 0 {
+				// Sum tokens from models map (common in some Gemini versions)
+				for _, m := range msg.Stats.Models {
+					usage.InputTokens += m.InputTokens
+					usage.OutputTokens += m.OutputTokens
+				}
+			}
 		}
 	}
 	return usage

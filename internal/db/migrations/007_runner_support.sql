@@ -1,0 +1,2 @@
+ALTER TABLE agents ADD COLUMN runner TEXT NOT NULL DEFAULT 'claude_code';
+ALTER TABLE agents ADD COLUMN api_key_env TEXT NOT NULL DEFAULT '';

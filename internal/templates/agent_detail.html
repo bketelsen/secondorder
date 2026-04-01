@@ -29,19 +29,19 @@
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger">
           <div class="bg-card border border-bd rounded-lg p-3 hover:border-bd transition-colors">
             <div class="text-[11px] text-ink3/50 uppercase tracking-wider">Today Tokens</div>
-            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{formatTokens .TodayTokens}}</div>
+            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{if eq .Agent.Runner "claude_code"}}{{formatTokens .TodayTokens}}{{else}}N/A{{end}}</div>
           </div>
           <div class="bg-card border border-bd rounded-lg p-3 hover:border-bd transition-colors">
             <div class="text-[11px] text-ink3/50 uppercase tracking-wider">Today Cost</div>
-            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{formatCost .TodayCost}}</div>
+            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{if eq .Agent.Runner "claude_code"}}{{formatCost .TodayCost}}{{else}}N/A{{end}}</div>
           </div>
           <div class="bg-card border border-bd rounded-lg p-3 hover:border-bd transition-colors">
             <div class="text-[11px] text-ink3/50 uppercase tracking-wider">Total Tokens</div>
-            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{formatTokens .TotalTokens}}</div>
+            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{if eq .Agent.Runner "claude_code"}}{{formatTokens .TotalTokens}}{{else}}N/A{{end}}</div>
           </div>
           <div class="bg-card border border-bd rounded-lg p-3 hover:border-bd transition-colors">
             <div class="text-[11px] text-ink3/50 uppercase tracking-wider">Total Cost</div>
-            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{formatCost .TotalCost}}</div>
+            <div class="text-lg font-semibold text-ink mt-1 tabular-nums">{{if eq .Agent.Runner "claude_code"}}{{formatCost .TotalCost}}{{else}}N/A{{end}}</div>
           </div>
         </div>
 
@@ -96,9 +96,11 @@
       <div class="w-56 shrink-0 space-y-3">
         <div class="bg-card border border-bd rounded-lg p-3 space-y-2.5 text-xs">
           <div class="text-[11px] font-medium text-ink3/50 uppercase tracking-wider mb-1">Config</div>
+          <div class="flex justify-between"><span class="text-ink3/50">Runner</span><span class="text-ink2 font-mono">{{.Agent.Runner}}</span></div>
           <div class="flex justify-between"><span class="text-ink3/50">Model</span><span class="text-ink2 font-mono">{{.Agent.Model}}</span></div>
           <div class="flex justify-between"><span class="text-ink3/50">Max turns</span><span class="text-ink2">{{.Agent.MaxTurns}}</span></div>
           <div class="flex justify-between"><span class="text-ink3/50">Timeout</span><span class="text-ink2">{{.Agent.TimeoutSec}}s</span></div>
+          {{if .Agent.ApiKeyEnv}}<div class="flex justify-between"><span class="text-ink3/50">API Key Env</span><span class="text-ink2 font-mono">{{.Agent.ApiKeyEnv}}</span></div>{{end}}
           <div class="flex justify-between gap-2"><span class="text-ink3/50 shrink-0">Working dir</span><span class="text-ink2 truncate font-mono" title="{{.Agent.WorkingDir}}">{{.Agent.WorkingDir}}</span></div>
           <div class="flex justify-between"><span class="text-ink3/50">Heartbeat</span>
             {{if .Agent.HeartbeatEnabled}}<span class="text-emerald-400">on</span>{{else}}<span class="text-ink3/40">off</span>{{end}}
@@ -128,12 +130,22 @@
               <input name="name" value="{{.Agent.Name}}" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
             </div>
             <div>
-              <label class="text-[11px] text-ink3/50">Model</label>
-              <select name="model" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
-                <option value="sonnet" {{if eq .Agent.Model "sonnet"}}selected{{end}}>Sonnet</option>
-                <option value="opus" {{if eq .Agent.Model "opus"}}selected{{end}}>Opus</option>
-                <option value="haiku" {{if eq .Agent.Model "haiku"}}selected{{end}}>Haiku</option>
+              <label class="text-[11px] text-ink3/50">Runner</label>
+              <select id="edit-runner" name="runner" onchange="updateModels('edit-runner', 'edit-model')" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
+                <option value="claude_code" {{if eq .Agent.Runner "claude_code"}}selected{{end}}>Claude Code</option>
+                <option value="codex" {{if eq .Agent.Runner "codex"}}selected{{end}}>Codex</option>
+                <option value="antigravity" {{if eq .Agent.Runner "antigravity"}}selected{{end}}>Antigravity</option>
               </select>
+            </div>
+            <div>
+              <label class="text-[11px] text-ink3/50">Model</label>
+              <select id="edit-model" name="model" data-current="{{.Agent.Model}}" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] text-ink3/50">API Key Env Var (Optional)</label>
+              <input name="api_key_env" value="{{.Agent.ApiKeyEnv}}" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac transition-shadow">
+              <p class="text-[10px] text-ink3/30 mt-1">If blank, the runner's default provider key is used.</p>
             </div>
             <div>
               <label class="text-[11px] text-ink3/50">Working Dir</label>
@@ -166,4 +178,9 @@
 
   </div>
 </main>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    updateModels('edit-runner', 'edit-model');
+});
+</script>
 {{template "foot" .}}

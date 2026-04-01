@@ -19,20 +19,20 @@ func (d *DB) CreateAgent(a *models.Agent) error {
 	now := time.Now()
 	a.CreatedAt = now
 	a.UpdatedAt = now
-	_, err := d.Exec(`INSERT INTO agents (id, name, slug, archetype_slug, model, working_dir, max_turns, timeout_sec,
+	_, err := d.Exec(`INSERT INTO agents (id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
 		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.ID, a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.ID, a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.Runner, a.ApiKeyEnv, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
 		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.ReportsTo, a.ReviewAgentID, a.Active, a.CreatedAt, a.UpdatedAt)
 	return err
 }
 
 func (d *DB) GetAgent(id string) (*models.Agent, error) {
 	a := &models.Agent{}
-	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, working_dir, max_turns, timeout_sec,
+	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
 		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE id = ?`, id).Scan(
-		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
+		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
 		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -42,10 +42,10 @@ func (d *DB) GetAgent(id string) (*models.Agent, error) {
 
 func (d *DB) GetAgentBySlug(slug string) (*models.Agent, error) {
 	a := &models.Agent{}
-	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, working_dir, max_turns, timeout_sec,
+	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
 		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE slug = ?`, slug).Scan(
-		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
+		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
 		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (d *DB) GetAgentBySlug(slug string) (*models.Agent, error) {
 }
 
 func (d *DB) ListAgents() ([]models.Agent, error) {
-	rows, err := d.Query(`SELECT id, name, slug, archetype_slug, model, working_dir, max_turns, timeout_sec,
+	rows, err := d.Query(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
 		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents ORDER BY created_at`)
 	if err != nil {
@@ -65,7 +65,7 @@ func (d *DB) ListAgents() ([]models.Agent, error) {
 	var agents []models.Agent
 	for rows.Next() {
 		var a models.Agent
-		if err := rows.Scan(&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
+		if err := rows.Scan(&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
 			&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -76,20 +76,20 @@ func (d *DB) ListAgents() ([]models.Agent, error) {
 
 func (d *DB) UpdateAgent(a *models.Agent) error {
 	a.UpdatedAt = time.Now()
-	_, err := d.Exec(`UPDATE agents SET name=?, slug=?, archetype_slug=?, model=?, working_dir=?, max_turns=?, timeout_sec=?,
+	_, err := d.Exec(`UPDATE agents SET name=?, slug=?, archetype_slug=?, model=?, runner=?, api_key_env=?, working_dir=?, max_turns=?, timeout_sec=?,
 		heartbeat_enabled=?, heartbeat_cron=?, chrome_enabled=?, reports_to=?, review_agent_id=?, active=?, updated_at=?
 		WHERE id=?`,
-		a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
+		a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.Runner, a.ApiKeyEnv, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
 		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.ReportsTo, a.ReviewAgentID, a.Active, a.UpdatedAt, a.ID)
 	return err
 }
 
 func (d *DB) GetCEOAgent() (*models.Agent, error) {
 	a := &models.Agent{}
-	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, working_dir, max_turns, timeout_sec,
+	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
 		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE archetype_slug = 'ceo' LIMIT 1`).Scan(
-		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
+		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
 		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -665,7 +665,7 @@ func (d *DB) IsAgentOverBudget(agentID string) (bool, error) {
 func (d *DB) LogActivity(action, entityType, entityID string, agentID *string, details string) error {
 	_, err := d.Exec(`INSERT INTO activity_log (id, action, entity_type, entity_id, agent_id, details, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		uuid.NewString(), action, entityType, entityID, agentID, details, time.Now())
+		uuid.NewString(), action, entityType, entityID, agentID, details, time.Now().UTC())
 	return err
 }
 
@@ -702,8 +702,8 @@ type TimelineEntry struct {
 }
 
 func (d *DB) ActivityTimeline48h() ([]TimelineEntry, error) {
-	since := time.Now().Add(-48 * time.Hour).Format("2006-01-02 15:04:05")
-	rows, err := d.Query(`SELECT strftime('%Y-%m-%d %H:00', created_at) as hour,
+	since := time.Now().UTC().Add(-48 * time.Hour).Format("2006-01-02 15:04:05")
+	rows, err := d.Query(`SELECT strftime('%Y-%m-%d %H:00', substr(created_at, 1, 19)) as hour,
 		entity_type, entity_id, count(*) as cnt
 		FROM activity_log
 		WHERE created_at >= ?
@@ -808,15 +808,15 @@ func (d *DB) CreateWorkBlock(wb *models.WorkBlock) error {
 	if wb.Status == "" {
 		wb.Status = models.WBStatusProposed
 	}
-	_, err := d.Exec(`INSERT INTO work_blocks (id, title, goal, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		wb.ID, wb.Title, wb.Goal, wb.Status, wb.CreatedAt, wb.UpdatedAt)
+	_, err := d.Exec(`INSERT INTO work_blocks (id, title, goal, acceptance_criteria, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		wb.ID, wb.Title, wb.Goal, wb.AcceptanceCriteria, wb.Status, wb.CreatedAt, wb.UpdatedAt)
 	return err
 }
 
 func (d *DB) GetWorkBlock(id string) (*models.WorkBlock, error) {
 	wb := &models.WorkBlock{}
-	err := d.QueryRow(`SELECT id, title, goal, status, created_at, updated_at, completed_at FROM work_blocks WHERE id=?`, id).Scan(
-		&wb.ID, &wb.Title, &wb.Goal, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.CompletedAt)
+	err := d.QueryRow(`SELECT id, title, goal, acceptance_criteria, status, created_at, updated_at, activated_at, completed_at FROM work_blocks WHERE id=?`, id).Scan(
+		&wb.ID, &wb.Title, &wb.Goal, &wb.AcceptanceCriteria, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.ActivatedAt, &wb.CompletedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -825,8 +825,8 @@ func (d *DB) GetWorkBlock(id string) (*models.WorkBlock, error) {
 
 func (d *DB) GetActiveWorkBlock() (*models.WorkBlock, error) {
 	wb := &models.WorkBlock{}
-	err := d.QueryRow(`SELECT id, title, goal, status, created_at, updated_at, completed_at FROM work_blocks WHERE status='active' LIMIT 1`).Scan(
-		&wb.ID, &wb.Title, &wb.Goal, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.CompletedAt)
+	err := d.QueryRow(`SELECT id, title, goal, acceptance_criteria, status, created_at, updated_at, activated_at, completed_at FROM work_blocks WHERE status='active' LIMIT 1`).Scan(
+		&wb.ID, &wb.Title, &wb.Goal, &wb.AcceptanceCriteria, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.ActivatedAt, &wb.CompletedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -834,7 +834,7 @@ func (d *DB) GetActiveWorkBlock() (*models.WorkBlock, error) {
 }
 
 func (d *DB) ListWorkBlocks() ([]models.WorkBlock, error) {
-	rows, err := d.Query(`SELECT id, title, goal, status, created_at, updated_at, completed_at FROM work_blocks ORDER BY created_at DESC`)
+	rows, err := d.Query(`SELECT id, title, goal, acceptance_criteria, status, created_at, updated_at, activated_at, completed_at FROM work_blocks ORDER BY created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -843,7 +843,7 @@ func (d *DB) ListWorkBlocks() ([]models.WorkBlock, error) {
 	var blocks []models.WorkBlock
 	for rows.Next() {
 		var wb models.WorkBlock
-		if err := rows.Scan(&wb.ID, &wb.Title, &wb.Goal, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.CompletedAt); err != nil {
+		if err := rows.Scan(&wb.ID, &wb.Title, &wb.Goal, &wb.AcceptanceCriteria, &wb.Status, &wb.CreatedAt, &wb.UpdatedAt, &wb.ActivatedAt, &wb.CompletedAt); err != nil {
 			return nil, err
 		}
 		blocks = append(blocks, wb)
@@ -887,8 +887,11 @@ func (d *DB) UpdateWorkBlockStatus(id, newStatus string) error {
 	if newStatus == models.WBStatusShipped || newStatus == models.WBStatusCancelled {
 		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=?, completed_at=? WHERE id=?`, newStatus, now, now, id)
 	} else if newStatus == models.WBStatusActive && wb.Status == models.WBStatusReady {
-		// Reactivation: clear completed_at
+		// Reactivation: clear completed_at, preserve activated_at
 		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=?, completed_at=NULL WHERE id=?`, newStatus, now, id)
+	} else if newStatus == models.WBStatusActive {
+		// First activation: set activated_at
+		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=?, activated_at=? WHERE id=?`, newStatus, now, now, id)
 	} else {
 		_, err = d.Exec(`UPDATE work_blocks SET status=?, updated_at=? WHERE id=?`, newStatus, now, id)
 	}
@@ -960,10 +963,10 @@ func (d *DB) GetWorkBlockStats(blockID string) (*models.WorkBlockStats, error) {
 	d.QueryRow(`SELECT COUNT(*), COALESCE(SUM(total_cost_usd), 0)
 		FROM runs WHERE issue_key IN (SELECT key FROM issues WHERE work_block_id=?)`, blockID).Scan(&s.RunCount, &s.TotalCost)
 
-	// Cycle time
+	// Active time: from activation to completion
 	wb, err := d.GetWorkBlock(blockID)
-	if err == nil && wb.CompletedAt != nil {
-		s.CycleTimeHours = wb.CompletedAt.Sub(wb.CreatedAt).Hours()
+	if err == nil && wb.CompletedAt != nil && wb.ActivatedAt != nil {
+		s.CycleTimeHours = wb.CompletedAt.Sub(*wb.ActivatedAt).Hours()
 	}
 
 	return s, nil

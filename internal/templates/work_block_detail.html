@@ -1,7 +1,7 @@
 {{template "head" .}}
 {{template "nav" .}}
 <main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
-  <div class="max-w-5xl mx-auto">
+  <div class="max-w-6xl mx-auto">
 
     <div class="flex items-center gap-2 text-sm text-ink3/50 mb-4">
       <a href="/work-blocks" class="hover:text-ink2 transition-colors">Work Blocks</a>
@@ -20,6 +20,12 @@
             <h1 class="text-lg font-semibold text-ink">{{.Block.Title}}</h1>
           </div>
           {{if .Block.Goal}}<p class="text-[13px] text-ink3 mt-2">{{.Block.Goal}}</p>{{end}}
+          {{if .Block.AcceptanceCriteria}}
+          <div class="mt-3 pt-3 border-t border-bd">
+            <p class="text-[11px] text-ink3/50 uppercase tracking-wider mb-1.5">Acceptance Criteria</p>
+            <p class="text-[13px] text-ink3 whitespace-pre-wrap">{{.Block.AcceptanceCriteria}}</p>
+          </div>
+          {{end}}
         </div>
 
         <!-- Issues -->
@@ -115,7 +121,7 @@
             </div>
             {{if gt .Stats.CycleTimeHours 0}}
             <div class="flex justify-between">
-              <dt class="text-ink3/50">Cycle Time</dt>
+              <dt class="text-ink3/50">Active Time</dt>
               <dd class="text-ink tabular-nums">{{printf "%.1f" .Stats.CycleTimeHours}}h</dd>
             </div>
             {{end}}

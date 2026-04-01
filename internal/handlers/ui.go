@@ -318,12 +318,17 @@ func (u *UI) createAgentUI(w http.ResponseWriter, r *http.Request) {
 		Slug:          slug,
 		ArchetypeSlug: r.FormValue("archetype_slug"),
 		Model:         r.FormValue("model"),
+		Runner:        r.FormValue("runner"),
+		ApiKeyEnv:     r.FormValue("api_key_env"),
 		WorkingDir:    r.FormValue("working_dir"),
 		MaxTurns:      50,
 		TimeoutSec:    600,
 		Active:        true,
 		CreatedAt:     time.Now(),
 		UpdatedAt:     time.Now(),
+	}
+	if agent.Runner == "" {
+		agent.Runner = "claude_code"
 	}
 	if agent.Model == "" {
 		agent.Model = "sonnet"
@@ -397,6 +402,10 @@ func (u *UI) updateAgentUI(w http.ResponseWriter, r *http.Request, slug string) 
 	if m := r.FormValue("model"); m != "" {
 		agent.Model = m
 	}
+	if rn := r.FormValue("runner"); rn != "" {
+		agent.Runner = rn
+	}
+	agent.ApiKeyEnv = r.FormValue("api_key_env")
 	if wd := r.FormValue("working_dir"); wd != "" {
 		agent.WorkingDir = wd
 	}
@@ -537,9 +546,10 @@ func (u *UI) createWorkBlockUI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wb := &models.WorkBlock{
-		Title:  title,
-		Goal:   r.FormValue("goal"),
-		Status: models.WBStatusProposed,
+		Title:              title,
+		Goal:               r.FormValue("goal"),
+		AcceptanceCriteria: r.FormValue("acceptance_criteria"),
+		Status:             models.WBStatusProposed,
 	}
 	u.db.CreateWorkBlock(wb)
 	http.Redirect(w, r, "/work-blocks/"+wb.ID, http.StatusSeeOther)
@@ -880,12 +890,17 @@ func (u *UI) Settings(w http.ResponseWriter, r *http.Request) {
 	settings, _ := u.db.GetAllSettings()
 
 	version := "dev"
-	goVersion := "unknown"
-	if info, ok := debug.ReadBuildInfo(); ok {
-		goVersion = info.GoVersion
+	if v, err := os.ReadFile("VERSION"); err == nil {
+		version = strings.TrimSpace(string(v))
+	} else if info, ok := debug.ReadBuildInfo(); ok {
 		if info.Main.Version != "" && info.Main.Version != "(devel)" {
 			version = info.Main.Version
 		}
+	}
+
+	goVersion := "unknown"
+	if info, ok := debug.ReadBuildInfo(); ok {
+		goVersion = info.GoVersion
 	}
 
 	var sqliteVersion string

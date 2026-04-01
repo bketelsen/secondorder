@@ -43,6 +43,44 @@
     <script>
     (function(){var t=localStorage.getItem('so-theme')||'dark';if(t==='dark')document.documentElement.classList.add('dark');})();
     </script>
+    <script>
+    function updateModels(runnerSelectId, modelSelectId) {
+        const runnerEl = document.getElementById(runnerSelectId);
+        if (!runnerEl) return;
+        const runner = runnerEl.value;
+        const modelSelect = document.getElementById(modelSelectId);
+        if (!modelSelect) return;
+        const currentModel = modelSelect.dataset.current;
+        modelSelect.innerHTML = '';
+        
+        let models = [];
+        if (runner === 'claude_code') {
+            models = [
+                {val: 'sonnet', label: 'Sonnet'},
+                {val: 'opus', label: 'Opus'},
+                {val: 'haiku', label: 'Haiku'}
+            ];
+        } else if (runner === 'codex') {
+            models = [
+                {val: 'o3', label: 'o3'},
+                {val: 'o4-mini', label: 'o4-mini'},
+                {val: 'gpt-4o', label: 'gpt-4o'}
+            ];
+        } else if (runner === 'antigravity') {
+            models = [
+                {val: 'default', label: 'Default'}
+            ];
+        }
+        
+        models.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.val;
+            opt.textContent = m.label;
+            if (m.val === currentModel) opt.selected = true;
+            modelSelect.appendChild(opt);
+        });
+    }
+    </script>
     <style>
 :root {
   --c-pg: 249 248 243; --c-card: 255 255 255; --c-sf: 241 239 238; --c-bd: 223 223 221;

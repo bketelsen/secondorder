@@ -37,6 +37,8 @@ type Agent struct {
 	Slug             string    `json:"slug"`
 	ArchetypeSlug    string    `json:"archetype_slug"`
 	Model            string    `json:"model"`
+	Runner           string    `json:"runner"`
+	ApiKeyEnv        string    `json:"api_key_env"`
 	WorkingDir       string    `json:"working_dir"`
 	MaxTurns         int       `json:"max_turns"`
 	TimeoutSec       int       `json:"timeout_sec"`
@@ -199,15 +201,17 @@ type RunEvent struct {
 }
 
 type WorkBlock struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Goal        string     `json:"goal"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	CompletedAt *time.Time `json:"completed_at"`
-	Issues      []Issue         `json:"issues,omitempty"`
-	Stats       *WorkBlockStats `json:"stats,omitempty"`
+	ID                 string     `json:"id"`
+	Title              string     `json:"title"`
+	Goal               string     `json:"goal"`
+	AcceptanceCriteria string     `json:"acceptance_criteria"`
+	Status             string     `json:"status"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+	ActivatedAt        *time.Time `json:"activated_at"`
+	CompletedAt        *time.Time `json:"completed_at"`
+	Issues             []Issue         `json:"issues,omitempty"`
+	Stats              *WorkBlockStats `json:"stats,omitempty"`
 }
 
 type WorkBlockStats struct {
