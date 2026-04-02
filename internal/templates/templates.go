@@ -82,6 +82,7 @@ var funcMap = template.FuncMap{
 	"seq": seq,
 	"add": func(a, b int) int { return a + b },
 	"sub": func(a, b int) int { return a - b },
+	"mult": func(a, b int) int { return a * b },
 	"mod": func(a, b int) int { return a % b },
 	"wbStatusColor": wbStatusColor,
 	"derefTime": func(t *time.Time) time.Time {

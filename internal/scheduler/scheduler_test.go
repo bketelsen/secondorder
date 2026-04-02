@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/models"
 )
@@ -33,7 +34,7 @@ func testDB(t *testing.T) *db.DB {
 
 func TestNew(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp/archetypes")
+	s := New(d, 9001)
 	if s == nil {
 		t.Fatal("expected non-nil scheduler")
 	}
@@ -44,7 +45,7 @@ func TestNew(t *testing.T) {
 
 func TestSetCallbacks(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	called := false
 	s.SetOnRunComplete(func(r *models.Run) { called = true })
@@ -63,7 +64,7 @@ func TestSetCallbacks(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 	s.Stop()
 	if !s.stopped {
 		t.Error("expected stopped=true")
@@ -72,7 +73,7 @@ func TestStop(t *testing.T) {
 
 func TestProvisionAPIKey(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	agent := &models.Agent{
 		Name: "Key Agent", Slug: "key-agent", ArchetypeSlug: "worker",
@@ -222,7 +223,7 @@ func TestLiveWriterAutoFlush(t *testing.T) {
 
 func TestBuildTaskPrompt(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	agent := &models.Agent{
 		Name: "Worker", Slug: "worker", ArchetypeSlug: "worker",
@@ -253,7 +254,7 @@ func TestBuildTaskPrompt(t *testing.T) {
 
 func TestBuildTaskPromptCEO(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	ceo := &models.Agent{
 		Name: "CEO", Slug: "ceo", ArchetypeSlug: "ceo",
@@ -275,7 +276,7 @@ func TestBuildTaskPromptCEO(t *testing.T) {
 
 func TestBuildHeartbeatPrompt(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	agent := &models.Agent{
 		Name: "HB Agent", Slug: "hb", ArchetypeSlug: "worker",
@@ -298,7 +299,7 @@ func TestBuildHeartbeatPrompt(t *testing.T) {
 
 func TestBuildWorkBlockContext(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	// No active block
 	ctx := s.buildWorkBlockContext()
@@ -322,7 +323,7 @@ func TestBuildWorkBlockContext(t *testing.T) {
 
 func TestBuildCEOAPIRef(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	// Create CEO and worker
 	ceo := &models.Agent{
@@ -352,7 +353,7 @@ func TestBuildCEOAPIRef(t *testing.T) {
 
 func TestWakeAgentWhenStopped(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 	s.Stop()
 
 	agent := &models.Agent{ID: "a1", Name: "Test"}
@@ -365,7 +366,7 @@ func TestWakeAgentWhenStopped(t *testing.T) {
 
 func TestWakeReviewerSelfReviewSkipped(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, "/tmp")
+	s := New(d, 9001)
 
 	// CEO with no review_agent_id or reports_to — GetReviewer falls back to CEO itself
 	ceo := &models.Agent{
@@ -390,7 +391,7 @@ func TestWakeReviewerSelfReviewSkipped(t *testing.T) {
 
 func TestWakeReviewerDifferentReviewer(t *testing.T) {
 	d := testDB(t)
-	_ = New(d, 9001, "/tmp")
+	_ = New(d, 9001)
 
 	reviewer := &models.Agent{
 		Name: "CEO", Slug: "ceo", ArchetypeSlug: "ceo",
@@ -434,7 +435,7 @@ func TestCaptureGitDiffInvalidDir(t *testing.T) {
 // TestCodexDispatch verifies execCodex uses the codex binary.
 func TestCodexDispatch(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, t.TempDir())
+	s := New(d, 9001)
 
 	binDir := t.TempDir()
 	makeStub(t, binDir, "codex")
@@ -475,8 +476,10 @@ func TestAntigravityDispatch(t *testing.T) {
 	if err := os.WriteFile(archetypeFile, []byte("you are a worker"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	archetypes.SetOverridesDir(archetypeDir)
+	t.Cleanup(func() { archetypes.SetOverridesDir("archetypes") })
 
-	s := New(d, 9001, archetypeDir)
+	s := New(d, 9001)
 
 	makeStub(t, binDir, "antigravity")
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
@@ -498,8 +501,8 @@ func TestAntigravityDispatch(t *testing.T) {
 	if !strings.Contains(out, "--system-prompt-file") {
 		t.Errorf("expected --system-prompt-file, got: %s", out)
 	}
-	if !strings.Contains(out, "worker.md") {
-		t.Errorf("expected worker.md in args, got: %s", out)
+	if !strings.Contains(out, "worker-") {
+		t.Errorf("expected worker- temp file in args, got: %s", out)
 	}
 }
 
@@ -507,7 +510,7 @@ func TestAntigravityDispatch(t *testing.T) {
 func TestAntigravityNoSystemPromptFileWhenMissing(t *testing.T) {
 	d := testDB(t)
 	binDir := t.TempDir()
-	s := New(d, 9001, t.TempDir()) // empty archetype dir
+	s := New(d, 9001) // empty archetype dir
 
 	makeStub(t, binDir, "antigravity")
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
@@ -534,8 +537,10 @@ func TestCodexEnvVars(t *testing.T) {
 	if err := os.WriteFile(archetypeFile, []byte("system instructions"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	archetypes.SetOverridesDir(archetypeDir)
+	t.Cleanup(func() { archetypes.SetOverridesDir("archetypes") })
 
-	s := New(d, 9001, archetypeDir)
+	s := New(d, 9001)
 	binDir := t.TempDir()
 	makeStub(t, binDir, "codex")
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))
@@ -562,7 +567,7 @@ func TestCodexEnvVars(t *testing.T) {
 // TestAntigravityEnvVars verifies ANTIGRAVITY_API_KEY is injected.
 func TestAntigravityEnvVars(t *testing.T) {
 	d := testDB(t)
-	s := New(d, 9001, t.TempDir())
+	s := New(d, 9001)
 	binDir := t.TempDir()
 	makeStub(t, binDir, "antigravity")
 	t.Setenv("PATH", binDir+":"+os.Getenv("PATH"))

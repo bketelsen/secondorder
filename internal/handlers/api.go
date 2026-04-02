@@ -125,6 +125,12 @@ func (a *API) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 
 	agent := agentFromContext(r.Context())
 
+	// Ownership check: only the assignee (or CEO) may update an issue
+	if agent != nil && issue.AssigneeAgentID != nil && *issue.AssigneeAgentID != agent.ID && agent.ArchetypeSlug != "ceo" {
+		jsonError(w, "forbidden: issue assigned to another agent", http.StatusForbidden)
+		return
+	}
+
 	if body.Status != "" {
 		issue.Status = body.Status
 	}

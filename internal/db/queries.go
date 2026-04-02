@@ -669,13 +669,17 @@ func (d *DB) LogActivity(action, entityType, entityID string, agentID *string, d
 	return err
 }
 
-func (d *DB) ListActivity(limit int) ([]models.ActivityLog, error) {
+func (d *DB) ListActivity(limit, offset int) ([]models.ActivityLog, error) {
 	query := `SELECT a.id, a.action, a.entity_type, a.entity_id, a.agent_id, a.details, a.created_at
-		FROM activity_log a ORDER BY a.created_at DESC`
+		FROM activity_log a WHERE a.entity_type != 'system' ORDER BY a.created_at DESC`
 	var args []any
 	if limit > 0 {
 		query += " LIMIT ?"
 		args = append(args, limit)
+	}
+	if offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, offset)
 	}
 	rows, err := d.Query(query, args...)
 	if err != nil {
@@ -694,6 +698,12 @@ func (d *DB) ListActivity(limit int) ([]models.ActivityLog, error) {
 	return logs, rows.Err()
 }
 
+func (d *DB) CountActivity() (int, error) {
+	var count int
+	err := d.QueryRow(`SELECT COUNT(*) FROM activity_log WHERE entity_type != 'system'`).Scan(&count)
+	return count, err
+}
+
 type TimelineEntry struct {
 	Hour       string // "2006-01-02 15:00"
 	EntityType string
@@ -706,7 +716,7 @@ func (d *DB) ActivityTimeline48h() ([]TimelineEntry, error) {
 	rows, err := d.Query(`SELECT strftime('%Y-%m-%d %H:00', substr(created_at, 1, 19)) as hour,
 		entity_type, entity_id, count(*) as cnt
 		FROM activity_log
-		WHERE created_at >= ?
+		WHERE created_at >= ? AND entity_type != 'system'
 		GROUP BY hour, entity_type, entity_id
 		ORDER BY hour ASC, cnt DESC`, since)
 	if err != nil {

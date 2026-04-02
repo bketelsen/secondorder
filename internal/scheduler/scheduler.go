@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/models"
 	log "github.com/sirupsen/logrus"
@@ -23,7 +24,6 @@ import (
 type Scheduler struct {
 	db           *db.DB
 	port         int
-	archetypesDir string
 	mu           sync.Mutex
 	running      map[string]context.CancelFunc // runID -> cancel
 	wg           sync.WaitGroup
@@ -32,12 +32,11 @@ type Scheduler struct {
 	onComment     func(issueKey, author, body string)
 }
 
-func New(database *db.DB, port int, archetypesDir string) *Scheduler {
+func New(database *db.DB, port int) *Scheduler {
 	return &Scheduler{
-		db:            database,
-		port:          port,
-		archetypesDir: archetypesDir,
-		running:       make(map[string]context.CancelFunc),
+		db:      database,
+		port:    port,
+		running: make(map[string]context.CancelFunc),
 	}
 }
 
@@ -267,12 +266,11 @@ func (s *Scheduler) execClaudeCode(ctx context.Context, agent *models.Agent, api
 		"--model", agent.Model,
 	}
 
-	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
-	if _, err := os.Stat(archetypeFile); err == nil {
-		if abs, err := filepath.Abs(archetypeFile); err == nil {
-			archetypeFile = abs
+	if agent.ArchetypeSlug != "" {
+		if tmpFile, cleanup, err := archetypes.WriteToTemp(agent.ArchetypeSlug); err == nil {
+			defer cleanup()
+			args = append(args, "--append-system-prompt-file", tmpFile)
 		}
-		args = append(args, "--append-system-prompt-file", archetypeFile)
 	}
 
 	artifactDir := filepath.Join(agent.WorkingDir, "artifact-docs")
@@ -342,8 +340,7 @@ func (s *Scheduler) execCodex(ctx context.Context, agent *models.Agent, apiKey, 
 	}
 
 	// Codex system prompt via env
-	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
-	if data, err := os.ReadFile(archetypeFile); err == nil {
+	if data, err := archetypes.Read(agent.ArchetypeSlug); err == nil {
 		env = append(env, fmt.Sprintf("CODEX_SYSTEM_PROMPT=%s", string(data)))
 	}
 
@@ -365,8 +362,7 @@ func (s *Scheduler) execCodex(ctx context.Context, agent *models.Agent, apiKey, 
 func (s *Scheduler) execGemini(ctx context.Context, agent *models.Agent, apiKey, runID, issueKey, prompt string) (string, error) {
 	// Prepend archetype to prompt since gemini CLI doesn't have a system prompt file flag
 	fullPrompt := prompt
-	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
-	if data, err := os.ReadFile(archetypeFile); err == nil {
+	if data, err := archetypes.Read(agent.ArchetypeSlug); err == nil {
 		fullPrompt = fmt.Sprintf("SYSTEM PROMPT:\n%s\n\nUSER PROMPT:\n%s", string(data), prompt)
 	}
 
@@ -426,12 +422,11 @@ func (s *Scheduler) execAntigravity(ctx context.Context, agent *models.Agent, ap
 		args = append(args, "--model", agent.Model)
 	}
 
-	archetypeFile := filepath.Join(s.archetypesDir, agent.ArchetypeSlug+".md")
-	if _, err := os.Stat(archetypeFile); err == nil {
-		if abs, err := filepath.Abs(archetypeFile); err == nil {
-			archetypeFile = abs
+	if agent.ArchetypeSlug != "" {
+		if tmpFile, cleanup, err := archetypes.WriteToTemp(agent.ArchetypeSlug); err == nil {
+			defer cleanup()
+			args = append(args, "--system-prompt-file", tmpFile)
 		}
-		args = append(args, "--system-prompt-file", archetypeFile)
 	}
 
 	cmd := exec.CommandContext(ctx, "antigravity", args...)
@@ -718,7 +713,7 @@ func (s *Scheduler) buildAuditPrompt(maxBlocks, maxIssues int, auditRunID, focus
 	agents, _ := s.db.ListAgents()
 	buf.WriteString("CURRENT AGENT ARCHETYPES:\n")
 	for _, a := range agents {
-		content, err := os.ReadFile(filepath.Join(s.archetypesDir, a.ArchetypeSlug+".md"))
+		content, err := archetypes.Read(a.ArchetypeSlug)
 		if err != nil {
 			continue
 		}

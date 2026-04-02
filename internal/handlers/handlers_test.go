@@ -710,6 +710,133 @@ func TestAgentUI_CreateAndUpdate(t *testing.T) {
 	}
 }
 
+// helper: create agent + API key, return raw key
+func createAgentWithKey(t *testing.T, d *db.DB, name, slug, archetype string) (*models.Agent, string) {
+	t.Helper()
+	agent := &models.Agent{
+		Name: name, Slug: slug, ArchetypeSlug: archetype,
+		Model: "sonnet", WorkingDir: "/tmp", MaxTurns: 50, TimeoutSec: 600, Active: true,
+	}
+	d.CreateAgent(agent)
+	rawKey := "so_key_" + slug
+	h := sha256.Sum256([]byte(rawKey))
+	prefix := rawKey
+	if len(prefix) > 10 {
+		prefix = prefix[:10]
+	}
+	d.CreateAPIKey(agent.ID, hex.EncodeToString(h[:]), prefix)
+	return agent, rawKey
+}
+
+// --- Security: ownership restriction ---
+
+func TestUpdateIssue_ForbiddenForNonAssignee(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	owner, _ := createAgentWithKey(t, d, "Owner", "owner", "backend")
+	other, otherKey := createAgentWithKey(t, d, "Other", "other", "frontend")
+	_ = other
+
+	issue := &models.Issue{Key: "SO-1", Title: "T", Status: "in_progress", AssigneeAgentID: &owner.ID}
+	d.CreateIssue(issue)
+
+	req := httptest.NewRequest("PATCH", "/api/v1/issues/SO-1", strings.NewReader(`{"status":"done"}`))
+	req.Header.Set("Authorization", "Bearer "+otherKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("key", "SO-1")
+	w := httptest.NewRecorder()
+	api.Auth(api.UpdateIssue)(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", w.Code)
+	}
+}
+
+func TestUpdateIssue_CEOCanUpdateAnyIssue(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	owner, _ := createAgentWithKey(t, d, "Owner", "owner2", "backend")
+	_, ceoKey := createAgentWithKey(t, d, "CEO", "ceo", "ceo")
+
+	issue := &models.Issue{Key: "SO-2", Title: "T2", Status: "in_progress", AssigneeAgentID: &owner.ID}
+	d.CreateIssue(issue)
+
+	req := httptest.NewRequest("PATCH", "/api/v1/issues/SO-2", strings.NewReader(`{"status":"done"}`))
+	req.Header.Set("Authorization", "Bearer "+ceoKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("key", "SO-2")
+	w := httptest.NewRecorder()
+	api.Auth(api.UpdateIssue)(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+}
+
+func TestUpdateIssue_AssigneeCanUpdate(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	owner, ownerKey := createAgentWithKey(t, d, "Owner3", "owner3", "backend")
+
+	issue := &models.Issue{Key: "SO-3", Title: "T3", Status: "in_progress", AssigneeAgentID: &owner.ID}
+	d.CreateIssue(issue)
+
+	req := httptest.NewRequest("PATCH", "/api/v1/issues/SO-3", strings.NewReader(`{"status":"done"}`))
+	req.Header.Set("Authorization", "Bearer "+ownerKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.SetPathValue("key", "SO-3")
+	w := httptest.NewRecorder()
+	api.Auth(api.UpdateIssue)(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+}
+
+// --- Security: invalid API key returns 401 ---
+
+func TestAuth_NoKey_Returns401(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	req := httptest.NewRequest("PATCH", "/api/v1/issues/SO-1", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.Auth(api.UpdateIssue)(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestAuth_InvalidKey_Returns401(t *testing.T) {
+	d := testDB(t)
+	hub := NewSSEHub()
+	defer hub.Close()
+	api := NewAPI(d, hub, nil, &stubTelegram{})
+
+	req := httptest.NewRequest("PATCH", "/api/v1/issues/SO-1", strings.NewReader(`{}`))
+	req.Header.Set("Authorization", "Bearer totally-wrong-key")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	api.Auth(api.UpdateIssue)(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
 // Ensure DB path comes from temp for test isolation
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())

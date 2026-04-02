@@ -784,6 +784,46 @@ func TestLogActivity(t *testing.T) {
 	}
 }
 
+func TestListActivity(t *testing.T) {
+	d := testDB(t)
+	for i := 0; i < 50; i++ {
+		_ = d.LogActivity("created", "issue", "SO-1", nil, "test")
+	}
+
+	// Default limit
+	logs, err := d.ListActivity(30, 0)
+	if err != nil {
+		t.Fatalf("list activity: %v", err)
+	}
+	if len(logs) != 30 {
+		t.Errorf("len = %d, want 30", len(logs))
+	}
+
+	// Pagination
+	logs, err = d.ListActivity(30, 30)
+	if err != nil {
+		t.Fatalf("list activity: %v", err)
+	}
+	if len(logs) != 20 {
+		t.Errorf("len = %d, want 20", len(logs))
+	}
+}
+
+func TestCountActivity(t *testing.T) {
+	d := testDB(t)
+	for i := 0; i < 50; i++ {
+		_ = d.LogActivity("created", "issue", "SO-1", nil, "test")
+	}
+
+	count, err := d.CountActivity()
+	if err != nil {
+		t.Fatalf("count activity: %v", err)
+	}
+	if count != 50 {
+		t.Errorf("count = %d, want 50", count)
+	}
+}
+
 // --- Dashboard ---
 
 func TestGetDashboardStats(t *testing.T) {
@@ -1203,14 +1243,14 @@ func TestSettings(t *testing.T) {
 
 // --- BoardPolicy CRUD ---
 
-func TestBoardPolicyDefaultsToInactive(t *testing.T) {
+func TestBoardPolicyDefaultsToActive(t *testing.T) {
 	d := testDB(t)
 	bp := &models.BoardPolicy{Directive: "test directive"}
 	if err := d.CreateBoardPolicy(bp); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if bp.Active {
-		t.Error("new policy should default to inactive, got active=true")
+	if !bp.Active {
+		t.Error("new policy should default to active, got active=false")
 	}
 	if bp.ID == "" {
 		t.Error("ID should be set after create")
@@ -1219,7 +1259,12 @@ func TestBoardPolicyDefaultsToInactive(t *testing.T) {
 
 func TestGetActiveBoardPoliciesExcludesInactive(t *testing.T) {
 	d := testDB(t)
-	d.CreateBoardPolicy(&models.BoardPolicy{Directive: "inactive one"})
+	bp := &models.BoardPolicy{Directive: "inactive one"}
+	d.CreateBoardPolicy(bp)
+	// it's active by default now, so we must toggle it off to test exclusion
+	if err := d.ToggleBoardPolicy(bp.ID); err != nil {
+		t.Fatalf("toggle: %v", err)
+	}
 
 	active, err := d.GetActiveBoardPolicies()
 	if err != nil {

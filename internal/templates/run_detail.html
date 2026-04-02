@@ -1,7 +1,7 @@
 {{template "head" .}}
 {{template "nav" .}}
 <main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-layout mx-auto">
 
     <div class="flex items-center gap-1.5 mb-5 text-xs">
       {{if .Agent}}<a href="/agents/{{.Agent.Slug}}" class="text-ink3/50 hover:text-ink2 transition-colors">{{.Agent.Name}}</a>

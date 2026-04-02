@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/handlers"
 	"github.com/msoedov/secondorder/internal/models"
@@ -27,6 +28,7 @@ func main() {
 	port := envOr("PORT", "3001")
 	dbPath := envOr("DB", "so.db")
 	archetypesDir := envOr("ARCHETYPES", "archetypes")
+	archetypes.SetOverridesDir(archetypesDir)
 
 	// CLI: secondorder [port]
 	if len(os.Args) > 1 {
@@ -59,7 +61,7 @@ func main() {
 	if p, err := parsePort(port); err == nil {
 		portInt = p
 	}
-	sched := scheduler.New(database, portInt, archetypesDir)
+	sched := scheduler.New(database, portInt)
 
 	// Wire wake function
 	wake := sched.WakeAgent

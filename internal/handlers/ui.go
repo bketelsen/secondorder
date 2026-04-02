@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/models"
 )
@@ -336,8 +337,8 @@ func (u *UI) createAgentUI(w http.ResponseWriter, r *http.Request) {
 	if agent.ArchetypeSlug == "" {
 		agent.ArchetypeSlug = "other"
 	}
-	if _, err := os.Stat(filepath.Join("archetypes", agent.ArchetypeSlug+".md")); err != nil {
-		http.Error(w, fmt.Sprintf("archetype file not found: archetypes/%s.md", agent.ArchetypeSlug), http.StatusBadRequest)
+	if !archetypes.Exists(agent.ArchetypeSlug) {
+		http.Error(w, fmt.Sprintf("archetype not found: %s", agent.ArchetypeSlug), http.StatusBadRequest)
 		return
 	}
 	if agent.WorkingDir == "" {
@@ -609,7 +610,16 @@ func (u *UI) updateWorkBlockUI(w http.ResponseWriter, r *http.Request, id string
 }
 
 func (u *UI) ActivityPage(w http.ResponseWriter, r *http.Request) {
-	logs, _ := u.db.ListActivity(200)
+	pageStr := r.URL.Query().Get("page")
+	page, _ := strconv.Atoi(pageStr)
+	if page < 1 {
+		page = 1
+	}
+	limit := 30
+	offset := (page - 1) * limit
+
+	logs, _ := u.db.ListActivity(limit, offset)
+	total, _ := u.db.CountActivity()
 	entries, _ := u.db.ActivityTimeline48h()
 
 	type TimelineCell struct {
@@ -688,6 +698,13 @@ func (u *UI) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"Logs":     logs,
 		"Timeline": timeline,
 		"Entities": entities,
+		"Page":     page,
+		"Total":    total,
+		"Limit":    limit,
+		"HasNext":  total > page*limit,
+		"HasPrev":  page > 1,
+		"NextPage": page + 1,
+		"PrevPage": page - 1,
 	})
 }
 

@@ -1,7 +1,7 @@
 {{template "head" .}}
 {{template "nav" .}}
 <main class="flex-1 ml-0 md:ml-56 p-8 pt-16 md:pt-8 mt-[3px]">
-  <div class="max-w-6xl mx-auto">
+  <div class="max-w-layout mx-auto">
 
     <div class="mb-6">
       <h1 class="text-lg font-semibold text-ink tracking-tight">Activity</h1>
@@ -54,7 +54,7 @@
     {{end}}
 
     {{if .Logs}}
-    <div class="bg-card border border-bd rounded-lg divide-y divide-sf overflow-hidden fade-in">
+    <div class="bg-card border border-bd rounded-lg divide-y divide-sf overflow-hidden fade-in mb-6">
       {{range .Logs}}
       <div class="flex items-center gap-3 px-4 py-2.5">
         <span class="text-[11px] text-ink3/50 tabular-nums shrink-0 w-16">{{timeAgo .CreatedAt}}</span>
@@ -71,6 +71,39 @@
       </div>
       {{end}}
     </div>
+
+    {{if or .HasNext .HasPrev}}
+    <div class="flex items-center justify-between mb-12">
+      <div class="text-[13px] text-ink3/50">
+        Showing {{add (mult (sub .Page 1) .Limit) 1}} to {{add (mult (sub .Page 1) .Limit) (len .Logs)}} of {{.Total}} events
+      </div>
+      <div class="flex items-center gap-2">
+        {{if .HasPrev}}
+        <a href="?page={{.PrevPage}}" class="px-3 py-1.5 text-[13px] font-medium text-ink2 bg-card border border-bd rounded-md hover:bg-sf transition-colors flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+          Newer
+        </a>
+        {{else}}
+        <div class="px-3 py-1.5 text-[13px] font-medium text-ink3/40 bg-sf/50 border border-bd/50 rounded-md cursor-not-allowed flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+          Newer
+        </div>
+        {{end}}
+
+        {{if .HasNext}}
+        <a href="?page={{.NextPage}}" class="px-3 py-1.5 text-[13px] font-medium text-ink2 bg-card border border-bd rounded-md hover:bg-sf transition-colors flex items-center gap-1.5">
+          Older
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </a>
+        {{else}}
+        <div class="px-3 py-1.5 text-[13px] font-medium text-ink3/40 bg-sf/50 border border-bd/50 rounded-md cursor-not-allowed flex items-center gap-1.5">
+          Older
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
     {{else}}
     <div class="bg-card border border-bd rounded-lg px-4 py-10 text-center text-sm text-ink3/50">No activity recorded yet.</div>
     {{end}}
