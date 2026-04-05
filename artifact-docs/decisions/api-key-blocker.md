@@ -2,6 +2,7 @@
 
 Date: 2026-03-29
 Audit runs affected: 46abf99d, a4895fbc, 65ff2dbb, 05f3fb5b (4 consecutive)
+**Status: RESOLVED — 2026-04-05 (audit 9541c09f). API key present, all patches submitted.**
 
 ---
 
