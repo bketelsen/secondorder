@@ -15,26 +15,29 @@ On first run, bootstraps a default org with 6 agents (CEO, engineer, product, de
 
 ## Secondorder vs Paperclip
 
-Secondorder is inspired by [Paperclip](https://github.com/msoedov/paperclip). Same mental model, radically different ops story.
+[Paperclip](https://github.com/msoedov/paperclip) proved you can point AI agents at a codebase and get work done. secondorder asks the next question: **what happens when the agents run the company?**
+
+Paperclip is a task runner. secondorder is an operating system for autonomous organizations -- agents don't just execute, they govern, audit, strategize, and improve themselves. The difference isn't incremental; it's architectural.
 
 |  | Secondorder | Paperclip |
 |--|-------------|-----------|
-| **Language** | Go | TypeScript / Node.js |
-| **Audit system** | Built-in auditor reviews all runs, produces reports | None |
-| **Recursive policies** | Policies evolve from audit findings, agents patch their own archetypes | Static prompts |
-| **Recursive governance** | CEO + auditor agents govern the org, no human in the loop | Manual agent coordination |
-| **Self-improvement** | Agents review runs, patch archetypes, compound knowledge | No feedback loop |
-| **Work blocks** | Sprint-like grouping with lifecycle (proposed -> active -> shipped) | No coordination primitive |
+| **Philosophy** | Autonomous org with recursive self-governance | AI-assisted task execution |
+| **Strategic planning** | Apex Blocks set north-star goals; work blocks align to strategy; alignment scores track drift | No strategy layer |
+| **Governance** | CEO + auditor agents govern the org, propose policy changes, patch archetypes -- no human in the loop | Manual agent coordination |
+| **Self-improvement** | Agents review runs, patch their own archetypes, compound institutional knowledge across the org | No feedback loop |
+| **Audit system** | Built-in auditor reviews all runs, identifies failure patterns, produces reports | None |
+| **Recursive policies** | Policies evolve from audit findings; agents patch their own role definitions | Static prompts |
+| **Work blocks** | Sprint-like grouping with lifecycle (proposed -> active -> ready -> shipped) | No coordination primitive |
 | **Change diffs** | Config versioning with full diff between revisions and one-click rollback | No version history |
 | **Agent templates** | 21 built-in archetypes (CEO, engineer, QA, designer, etc.), one-click org bootstrap | Define from scratch |
 | **Token optimization** | Context lives in files (archetypes + artifact-docs), not in prompts. Minimal token usage per dispatch | Full context in every prompt |
-| **Self-bootstrapped** | secondorder was human-written and then bootstrapped by its own agents | Human-written? |
-| **Cross-compile** | `GOOS=linux go build` | Dockerfile per platform |
+| **Self-bootstrapped** | secondorder was human-written and then bootstrapped by its own agents | Human-written |
+| **Language** | Go -- single binary, zero deps, cross-compiles anywhere | TypeScript / Node.js |
 | **Cold start** | <1s | ~15s |
 | **Runtime deps** | 0 | Node, npm, Docker |
 | **Frontend** | Go templates + HTMX (no build step) | React + Vite |
 
-**Why:** Paperclip proved the concept. secondorder eliminates the ops tax. No Docker, no npm, no runtime -- `scp` one binary to a server and you're running a zero-human company. *secondorder is self-bootstrapped: the agents built and shipped this project themselves.*
+**The gap:** Paperclip gives you agents that do what you tell them. secondorder gives you agents that figure out what to do, do it, review each other's work, learn from mistakes, and align everything to strategic goals -- while you watch from a dashboard. `scp` one binary to a server and you're running a zero-human company.
 
 ## Why this exists
 
@@ -65,6 +68,17 @@ Secondorder supports a self-organized, hierarchical agent structure:
 - **Reporting Lines**: Every agent can have a `reports_to` reference, enabling traditional management trees or flat, specialist-led structures.
 - **Review Chain**: Agents can be assigned a `review_agent_id`. When an agent completes an issue (`in_review`), the reviewer is notified to audit the work before it reaches the CEO or Human.
 - **Specialization**: 21+ archetypes (Engineer, Designer, QA, DevOps, etc.) ensure agents have the right tools and context for their specific role.
+
+### Strategic Blocks (Apex Blocks)
+
+An **Apex Block** is a **strategic goal set by the board**. It represents the highest-level objective the organization is pursuing -- the "why" behind all execution.
+
+- **Analogy**: If a Work Block is a Sprint, an Apex Block is a Quarterly Objective (OKR).
+- **North Star Metrics**: Each Work Block aligned to an Apex Block carries a `north_star_metric` and `north_star_target` -- the measurable outcome that defines success.
+- **Alignment Score**: The strategy dashboard shows what percentage of active Work Blocks are aligned to an Apex Block. Unaligned work is visible drift.
+- **Lifecycle**: `active` (currently pursued) or `archived` (completed or deprioritized).
+
+Strategic blocks close the loop between execution and intent. Agents don't just ship code -- they ship code that moves a metric toward a goal that the board defined. Without this layer, autonomous agents optimize locally (close tickets) but drift globally (build the wrong thing).
 
 ### Workbooks (Work Blocks)
 
@@ -100,6 +114,8 @@ A **Workbook** (represented in the system as a `WorkBlock`) is a **milestone or 
 **Issue tracking** -- Linear-style board with priorities, labels, status workflow, sub-issues, comments, search. Agents and humans use the same board.
 
 **Cost enforcement** -- Per-agent daily token and cost budgets. Hard limits pause execution before overspend. Real-time token tracking parsed from CLI output.
+
+**Strategic alignment** -- Apex Blocks define board-level goals. Work blocks align to strategy with north-star metrics. Alignment scores surface drift between execution and intent.
 
 **Work blocks** -- Sprint-like coordination. Group issues, set goals, lifecycle (proposed -> active -> ready -> shipped). Telegram bot for mobile approvals.
 
