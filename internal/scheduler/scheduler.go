@@ -14,11 +14,12 @@ import (
 	"sync"
 	"time"
 
+	"log/slog"
+
 	"github.com/google/uuid"
 	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/models"
-	log "github.com/sirupsen/logrus"
 )
 
 type Scheduler struct {
@@ -74,7 +75,7 @@ func (s *Scheduler) Stop() {
 	}
 	s.mu.Unlock()
 	s.wg.Wait()
-	log.Info("scheduler: all agents stopped")
+	slog.Info("scheduler: all agents stopped")
 }
 
 // WakeAgent spawns an agent for a specific issue (event-driven)
@@ -107,16 +108,16 @@ func (s *Scheduler) WakeAgentHeartbeat(agent *models.Agent) {
 func (s *Scheduler) WakeReviewer(agentID, issueKey string) {
 	reviewer, err := s.db.GetReviewer(agentID)
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to find reviewer")
+		slog.Error("scheduler: failed to find reviewer", "error", err)
 		return
 	}
 	if reviewer.ID == agentID {
-		log.WithField("agent", agentID).Debug("scheduler: skipping self-review")
+		slog.Debug("scheduler: skipping self-review", "agent", agentID)
 		return
 	}
 	issue, err := s.db.GetIssue(issueKey)
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to get issue for reviewer")
+		slog.Error("scheduler: failed to get issue for reviewer", "error", err)
 		return
 	}
 	s.WakeAgent(reviewer, issue)
@@ -138,7 +139,7 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 	}
 
 	if err := s.db.CreateRun(run); err != nil {
-		log.WithError(err).Error("scheduler: failed to create run")
+		slog.Error("scheduler: failed to create run", "error", err)
 		return ""
 	}
 
@@ -149,7 +150,7 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 	// Provision API key
 	rawKey, err := s.provisionAPIKey(agent.ID)
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to provision API key")
+		slog.Error("scheduler: failed to provision API key", "error", err)
 		return ""
 	}
 
@@ -169,20 +170,28 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			cancel()
 		}()
 
-		logEntry := log.WithFields(log.Fields{
-			"agent":     agent.Name,
-			"archetype": agent.ArchetypeSlug,
-			"run_id":    runID,
-			"model":     agent.Model,
-			"mode":      mode,
-			"issue_key": issueKey,
-		})
-		logEntry.Info("scheduler: spawning agent")
+		logAttrs := []any{
+			"agent", agent.Name,
+			"archetype", agent.ArchetypeSlug,
+			"run_id", runID,
+			"runner", agent.Runner,
+			"model", agent.Model,
+			"mode", mode,
+			"issue_key", issueKey,
+			"timeout_sec", agent.TimeoutSec,
+			"working_dir", agent.WorkingDir,
+		}
+		slog.Info("scheduler: spawning agent", logAttrs...)
 
 		startTime := time.Now()
 		var stdout string
 		var err error
-		switch agent.Runner {
+		runner := agent.Runner
+		if runner == "" {
+			runner = "claude_code"
+		}
+		slog.Debug("scheduler: executing runner", "runner", runner, "run_id", runID)
+		switch runner {
 		case "codex":
 			stdout, err = s.execCodex(ctx, agent, rawKey, runID, issueKey, prompt)
 		case "gemini":
@@ -192,11 +201,7 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 		case "claude_code":
 			stdout, err = s.execClaudeCode(ctx, agent, rawKey, runID, issueKey, prompt)
 		default:
-			if agent.Runner == "" {
-				stdout, err = s.execClaudeCode(ctx, agent, rawKey, runID, issueKey, prompt)
-			} else {
-				err = fmt.Errorf("unsupported runner: %s", agent.Runner)
-			}
+			err = fmt.Errorf("unsupported runner: %s", runner)
 		}
 		elapsed := time.Since(startTime)
 
@@ -205,17 +210,26 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			status = models.RunStatusFailed
 			if ctx.Err() == context.DeadlineExceeded {
 				status = models.RunStatusFailed
-				logEntry.Warn("scheduler: agent timed out")
+				slog.Warn("scheduler: agent timed out", "agent", agent.Name, "run_id", runID, "elapsed", elapsed.Round(time.Second))
 			} else if ctx.Err() == context.Canceled {
 				status = models.RunStatusCancelled
+				slog.Info("scheduler: agent cancelled", "agent", agent.Name, "run_id", runID)
 			} else {
-				// Include the last few lines of stdout in the log for easier debugging
 				lastOutput := stdout
 				lines := strings.Split(strings.TrimSpace(stdout), "\n")
 				if len(lines) > 10 {
 					lastOutput = "... (truncated)\n" + strings.Join(lines[len(lines)-10:], "\n")
 				}
-				logEntry.WithError(err).WithField("output", lastOutput).Error("scheduler: agent failed")
+				slog.Error("scheduler: agent failed",
+					"agent", agent.Name,
+					"run_id", runID,
+					"runner", runner,
+					"model", agent.Model,
+					"issue_key", issueKey,
+					"elapsed", elapsed.Round(time.Second),
+					"error", err,
+					"output", lastOutput,
+				)
 			}
 		}
 
@@ -237,7 +251,7 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			TotalCostUSD:      tokens.TotalCostUSD,
 		}
 		if err := s.db.CompleteRun(runID, status, stdout, diff, completedRun); err != nil {
-			logEntry.WithError(err).Error("scheduler: failed to complete run")
+			slog.Error("scheduler: failed to complete run", "run_id", runID, "error", err)
 		}
 
 		// Record cost event
@@ -253,13 +267,19 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			})
 		}
 
-		logEntry.WithFields(log.Fields{
-			"status":        status,
-			"elapsed":       elapsed.Round(time.Second),
-			"cost_usd":      fmt.Sprintf("%.4f", tokens.TotalCostUSD),
-			"input_tokens":  tokens.InputTokens,
-			"output_tokens": tokens.OutputTokens,
-		}).Info("scheduler: agent completed")
+		slog.Info("scheduler: agent completed",
+			"agent", agent.Name,
+			"run_id", runID,
+			"runner", runner,
+			"model", agent.Model,
+			"issue_key", issueKey,
+			"mode", mode,
+			"status", status,
+			"elapsed", elapsed.Round(time.Second),
+			"cost_usd", fmt.Sprintf("%.4f", tokens.TotalCostUSD),
+			"input_tokens", tokens.InputTokens,
+			"output_tokens", tokens.OutputTokens,
+		)
 
 		if s.onRunComplete != nil {
 			finalRun := &models.Run{
@@ -305,6 +325,7 @@ func (s *Scheduler) execClaudeCode(ctx context.Context, agent *models.Agent, api
 	}
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
+	slog.Debug("scheduler: exec", "run_id", runID, "cmd", cmd.String())
 	cmd.Dir = agent.WorkingDir
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("SECONDORDER_AGENT_ID=%s", agent.ID),
@@ -318,9 +339,11 @@ func (s *Scheduler) execClaudeCode(ctx context.Context, agent *models.Agent, api
 
 	// Use liveWriter to stream stdout to DB
 	lw := &liveWriter{
-		db:       s.db,
-		runID:    runID,
-		interval: 2 * time.Second,
+		db:            s.db,
+		runID:         runID,
+		interval:      2 * time.Second,
+		agentName:     agent.Name,
+		archetypeSlug: agent.ArchetypeSlug,
 	}
 	cmd.Stdout = lw
 	cmd.Stderr = lw
@@ -342,6 +365,7 @@ func (s *Scheduler) execCodex(ctx context.Context, agent *models.Agent, apiKey, 
 	args = append(args, prompt)
 
 	cmd := exec.CommandContext(ctx, "codex", args...)
+	slog.Debug("scheduler: exec", "run_id", runID, "cmd", cmd.String())
 	cmd.Dir = agent.WorkingDir
 
 	env := os.Environ()
@@ -370,9 +394,11 @@ func (s *Scheduler) execCodex(ctx context.Context, agent *models.Agent, apiKey, 
 	cmd.Env = env
 
 	lw := &liveWriter{
-		db:       s.db,
-		runID:    runID,
-		interval: 2 * time.Second,
+		db:            s.db,
+		runID:         runID,
+		interval:      2 * time.Second,
+		agentName:     agent.Name,
+		archetypeSlug: agent.ArchetypeSlug,
 	}
 	cmd.Stdout = lw
 	cmd.Stderr = lw
@@ -394,11 +420,12 @@ func (s *Scheduler) execGemini(ctx context.Context, agent *models.Agent, apiKey,
 		"--yolo",
 		"--output-format", "stream-json",
 	}
-	if agent.Model != "" {
+	if agent.Model != "" && agent.Model != "default" {
 		args = append(args, "-m", agent.Model)
 	}
 
 	cmd := exec.CommandContext(ctx, "gemini", args...)
+	slog.Debug("scheduler: exec", "run_id", runID, "cmd", cmd.String())
 	cmd.Dir = agent.WorkingDir
 
 	env := os.Environ()
@@ -422,9 +449,11 @@ func (s *Scheduler) execGemini(ctx context.Context, agent *models.Agent, apiKey,
 	cmd.Env = env
 
 	lw := &liveWriter{
-		db:       s.db,
-		runID:    runID,
-		interval: 2 * time.Second,
+		db:            s.db,
+		runID:         runID,
+		interval:      2 * time.Second,
+		agentName:     agent.Name,
+		archetypeSlug: agent.ArchetypeSlug,
 	}
 	cmd.Stdout = lw
 	cmd.Stderr = lw
@@ -453,6 +482,7 @@ func (s *Scheduler) execAntigravity(ctx context.Context, agent *models.Agent, ap
 	}
 
 	cmd := exec.CommandContext(ctx, "antigravity", args...)
+	slog.Debug("scheduler: exec", "run_id", runID, "cmd", cmd.String())
 	cmd.Dir = agent.WorkingDir
 
 	env := os.Environ()
@@ -476,9 +506,11 @@ func (s *Scheduler) execAntigravity(ctx context.Context, agent *models.Agent, ap
 	cmd.Env = env
 
 	lw := &liveWriter{
-		db:       s.db,
-		runID:    runID,
-		interval: 2 * time.Second,
+		db:            s.db,
+		runID:         runID,
+		interval:      2 * time.Second,
+		agentName:     agent.Name,
+		archetypeSlug: agent.ArchetypeSlug,
 	}
 	cmd.Stdout = lw
 	cmd.Stderr = lw
@@ -880,14 +912,14 @@ func (s *Scheduler) RecoverStuckIssues() int {
 	// Mark any stale "running" runs as failed since the process restarted
 	staleCount, err := s.db.MarkStaleRunsFailed()
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to mark stale runs")
+		slog.Error("scheduler: failed to mark stale runs", "error", err)
 	} else if staleCount > 0 {
-		log.WithField("count", staleCount).Info("scheduler: marked stale runs as failed")
+		slog.Info("scheduler: marked stale runs as failed", "count", staleCount)
 	}
 
 	issues, err := s.db.GetStuckIssues()
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to get stuck issues")
+		slog.Error("scheduler: failed to get stuck issues", "error", err)
 		return 0
 	}
 	if len(issues) == 0 {
@@ -911,13 +943,11 @@ func (s *Scheduler) RecoverStuckIssues() int {
 		// Check budget before waking
 		over, _ := s.db.IsAgentOverBudget(agent.ID)
 		if over {
-			log.WithFields(log.Fields{"agent": agent.Name, "issue": issue.Key}).
-				Warn("scheduler: agent over budget, skipping recovery")
+			slog.Warn("scheduler: agent over budget, skipping recovery", "agent", agent.Name, "issue", issue.Key)
 			continue
 		}
 
-		log.WithFields(log.Fields{"agent": agent.Name, "issue": issue.Key, "status": issue.Status}).
-			Info("scheduler: recovering stuck issue")
+		slog.Info("scheduler: recovering stuck issue", "agent", agent.Name, "issue", issue.Key, "status", issue.Status)
 		s.WakeAgent(agent, issue)
 		woken[agent.ID] = true
 		recovered++
@@ -954,7 +984,7 @@ func (s *Scheduler) StartHeartbeatLoop(interval time.Duration) {
 func (s *Scheduler) runHeartbeats() {
 	agents, err := s.db.ListAgents()
 	if err != nil {
-		log.WithError(err).Error("scheduler: failed to list agents for heartbeat")
+		slog.Error("scheduler: failed to list agents for heartbeat", "error", err)
 		return
 	}
 	for i := range agents {
@@ -965,7 +995,7 @@ func (s *Scheduler) runHeartbeats() {
 		// Check if agent is over budget
 		over, _ := s.db.IsAgentOverBudget(a.ID)
 		if over {
-			log.WithField("agent", a.Name).Warn("scheduler: agent over budget, skipping heartbeat")
+			slog.Warn("scheduler: agent over budget, skipping heartbeat", "agent", a.Name)
 			continue
 		}
 		s.WakeAgentHeartbeat(a)
@@ -1020,18 +1050,46 @@ Your team:
 
 // liveWriter buffers stdout and flushes to DB periodically
 type liveWriter struct {
-	db       *db.DB
-	runID    string
-	interval time.Duration
-	mu       sync.Mutex
-	buf      strings.Builder
-	lastFlush time.Time
+	db            *db.DB
+	runID         string
+	interval      time.Duration
+	agentName     string
+	archetypeSlug string
+	mu            sync.Mutex
+	buf           strings.Builder
+	lineBuf       strings.Builder
+	lastFlush     time.Time
 }
+
+const LevelTrace = slog.Level(-8)
 
 func (w *liveWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	n, err := w.buf.Write(p)
+
+	// Per-line logging at trace level (-vvv)
+	if slog.Default().Enabled(context.Background(), LevelTrace) {
+		w.lineBuf.Write(p)
+		for {
+			s := w.lineBuf.String()
+			idx := strings.IndexByte(s, '\n')
+			if idx < 0 {
+				break
+			}
+			line := s[:idx]
+			w.lineBuf.Reset()
+			w.lineBuf.WriteString(s[idx+1:])
+			if strings.TrimSpace(line) != "" {
+				slog.Log(context.Background(), LevelTrace, line,
+					"agent", w.agentName,
+					"archetype", w.archetypeSlug,
+					"run_id", w.runID,
+				)
+			}
+		}
+	}
+
 	if time.Since(w.lastFlush) >= w.interval {
 		w.db.UpdateRunStdout(w.runID, w.buf.String())
 		w.lastFlush = time.Now()

@@ -48,6 +48,7 @@ var RunnerModels = map[string][]string{
 		"haiku",
 	},
 	RunnerGemini: {
+		"default",
 		"gemini-3.1-pro",
 		"gemini-3.1-flash-lite",
 		"gemini-3.1-flash-live",
@@ -61,6 +62,7 @@ var RunnerModels = map[string][]string{
 		"gemini-1.5-flash",
 	},
 	RunnerCodex: {
+		"default",
 		"gpt-5.4-thinking",
 		"gpt-5.4-pro",
 		"gpt-5.4-instant",

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{if .PageTitle}}{{.PageTitle}} - Second Order{{else}}Second
       Order{{end}}</title>
-    <link rel="icon" type="image/svg+xml" href="/static/favicon-v2.svg">
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -76,6 +76,7 @@
             ];
         } else if (runner === 'codex') {
             models = [
+                {val: 'default', label: 'Default'},
                 {val: 'gpt-5.4-thinking', label: 'GPT-5.4 Thinking'},
                 {val: 'gpt-5.4-pro', label: 'GPT-5.4 Pro'},
                 {val: 'gpt-5.4-instant', label: 'GPT-5.4 Instant'},
@@ -88,6 +89,7 @@
             ];
         } else if (runner === 'gemini') {
             models = [
+                {val: 'default', label: 'Default'},
                 {val: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro'},
                 {val: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite'},
                 {val: 'gemini-3.1-flash-live', label: 'Gemini 3.1 Flash-Live'},
@@ -229,9 +231,13 @@ td.diff-code .hljs-type, td.diff-code .hljs-title.class_ { color: #f69d50; }
       <div
         class="px-4 py-5 border-b border-bd flex items-center justify-between">
         <div>
-          <h1 class="text-sm font-semibold tracking-wide text-ink">Second
-            Order</h1>
-          <p class="text-xs text-ink3/50 mt-0.5">Zero human company</p>
+          <h1 class="text-sm font-semibold tracking-tight text-ink leading-none">
+            <span class="inline-flex items-baseline">
+              <span class="text-[17px] font-bold tabular-nums" style="font-variant-numeric:tabular-nums">2</span><sup class="text-[12px] font-bold text-ac-t relative" style="top:-0.7em">ND</sup>
+            </span>
+            <span class="ml-[2px]" style="font-size:15px">Order</span>
+          </h1>
+          <p class="text-[10px] text-ink3/[0.50] mt-1 tracking-widest uppercase">Zero human company</p>
         </div>
         <button onclick="closeMobileNav()"
           class="md:hidden p-1 text-ink3 hover:text-ink transition-colors">

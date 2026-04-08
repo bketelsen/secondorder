@@ -2,11 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -37,19 +36,11 @@ func retryOnBusy(op string, fn func() error) error {
 			delay = retryMaxDelay
 		}
 		if elapsed+delay > retryMaxDuration {
-			log.WithFields(log.Fields{
-				"op":      op,
-				"elapsed": elapsed.Round(time.Millisecond),
-				"attempt": attempt + 1,
-			}).Error("db: SQLITE_BUSY retry exhausted, giving up")
+			slog.Error("db: SQLITE_BUSY retry exhausted, giving up", "op", op, "elapsed", elapsed.Round(time.Millisecond), "attempt", attempt+1)
 			return err
 		}
 
-		log.WithFields(log.Fields{
-			"op":      op,
-			"delay":   delay.Round(time.Millisecond),
-			"attempt": attempt + 1,
-		}).Warn("db: SQLITE_BUSY, retrying with backoff")
+		slog.Warn("db: SQLITE_BUSY, retrying with backoff", "op", op, "delay", delay.Round(time.Millisecond), "attempt", attempt+1)
 
 		time.Sleep(delay)
 		elapsed += delay

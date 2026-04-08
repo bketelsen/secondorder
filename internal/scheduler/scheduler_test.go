@@ -188,7 +188,7 @@ func TestRunAudit(t *testing.T) {
 		t.Fatalf("RunAudit runner only: %v", err)
 	}
 	ar5, _ := d.GetAuditRun(runID5)
-	if ar5.Runner != "gemini" || ar5.Model != "gemini-3.1-pro" {
+	if ar5.Runner != "gemini" || ar5.Model != "default" {
 		t.Errorf("expected first valid gemini model, got %s/%s", ar5.Runner, ar5.Model)
 	}
 

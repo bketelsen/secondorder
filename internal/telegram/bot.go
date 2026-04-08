@@ -5,11 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type Bot struct {
@@ -88,7 +87,7 @@ func (b *Bot) StartPolling(ctx context.Context) {
 
 		updates, newOffset, err := b.getUpdates(offset)
 		if err != nil {
-			log.WithError(err).Warn("telegram: poll error")
+			slog.Warn("telegram: poll error", "error", err)
 			time.Sleep(5 * time.Second)
 			continue
 		}

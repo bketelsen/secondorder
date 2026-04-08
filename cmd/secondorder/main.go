@@ -15,6 +15,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"log/slog"
+
+	"github.com/lmittmann/tint"
 	"github.com/msoedov/secondorder/internal/archetypes"
 	"github.com/msoedov/secondorder/internal/db"
 	"github.com/msoedov/secondorder/internal/handlers"
@@ -23,7 +26,6 @@ import (
 	"github.com/msoedov/secondorder/internal/telegram"
 	"github.com/msoedov/secondorder/internal/templates"
 	"github.com/msoedov/secondorder/static"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
 
@@ -31,8 +33,13 @@ import (
 var startupTemplatesFS embed.FS
 
 func main() {
-	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
-	log.SetLevel(log.InfoLevel)
+	// slog level set after CLI parsing; initialize with default
+	logLevel := new(slog.LevelVar)
+	logLevel.Set(slog.LevelWarn)
+	slog.SetDefault(slog.New(tint.NewHandler(os.Stderr, &tint.Options{
+		TimeFormat: time.DateTime,
+		Level:      logLevel,
+	})))
 
 	port := envOr("PORT", "3001")
 	dbPath := envOr("DB", "so.db")
@@ -44,16 +51,25 @@ func main() {
 
 	var templateProvided, modelProvided bool
 
-	// CLI: secondorder [-t <template>] [-m <model>] [port]
+	verbosity := 0
+
+	// CLI: secondorder [-t <template>] [-m <model>] [-v|-vv|-vvv] [port]
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		if arg == "-h" || arg == "--help" {
-			fmt.Println("Usage: secondorder [-t <template>] [-m <model>] [port]")
+			fmt.Println("Usage: secondorder [-t <template>] [-m <model>] [-v|-vv|-vvv] [port]")
 			fmt.Println("  -t, --template  Team template: startup, dev-team, enterprise, saas, agency (default: startup)")
 			fmt.Println("  -m, --model     Default agent runner: claude, gemini, codex (default: claude)")
+			fmt.Println("  -v              Verbosity: -v info, -vv debug, -vvv debug+cmd")
 			fmt.Println("  port            HTTP port (default: 3001, or PORT env)")
 			os.Exit(0)
+		} else if arg == "-vvv" {
+			verbosity = 3
+		} else if arg == "-vv" {
+			verbosity = 2
+		} else if arg == "-v" {
+			verbosity = 1
 		} else if arg == "--template" || arg == "-t" {
 			if i+1 >= len(args) {
 				fmt.Fprintln(os.Stderr, "error: --template requires a value")
@@ -75,16 +91,27 @@ func main() {
 		}
 	}
 
+	switch {
+	case verbosity >= 3:
+		logLevel.Set(slog.Level(-8)) // trace: per-line agent output
+	case verbosity == 2:
+		logLevel.Set(slog.LevelDebug)
+	case verbosity == 1:
+		logLevel.Set(slog.LevelInfo)
+	}
+
 	// Database
 	database, err := db.Open(dbPath)
 	if err != nil {
-		log.WithError(err).Fatal("failed to open database")
+		slog.Error("failed to open database", "error", err)
+		os.Exit(1)
 	}
 
 	// HTML templates
 	tmpl, err := templates.Parse()
 	if err != nil {
-		log.WithError(err).Fatal("failed to parse templates")
+		slog.Error("failed to parse templates", "error", err)
+		os.Exit(1)
 	}
 
 	// SSE hub
@@ -146,31 +173,31 @@ func main() {
 			if decision == "approve" {
 				wb, err := database.GetWorkBlock(blockID)
 				if err != nil {
-					log.WithError(err).Error("telegram: block not found")
+					slog.Error("telegram: block not found", "error", err)
 					return
 				}
 				switch wb.Status {
 				case models.WBStatusProposed:
 					database.UpdateWorkBlockStatus(blockID, models.WBStatusActive)
-					log.WithField("block", wb.Title).Info("telegram: block activated")
+					slog.Info("telegram: block activated", "block", wb.Title)
 					if ceo, err := database.GetCEOAgent(); err == nil {
 						sched.WakeAgentHeartbeat(ceo)
 					}
 				case models.WBStatusReady:
 					database.UpdateWorkBlockStatus(blockID, models.WBStatusShipped)
-					log.WithField("block", wb.Title).Info("telegram: block shipped")
+					slog.Info("telegram: block shipped", "block", wb.Title)
 				}
 			} else {
 				handlers.LogActivityAndBroadcast(database, sse, tmpl, "rejected", "work_block", blockID, nil, "Rejected via Telegram")
 
-				log.WithField("block", blockID).Info("telegram: block rejected")
+				slog.Info("telegram: block rejected", "block", blockID)
 			}
 		}
 		ctx, tgCancel := context.WithCancel(context.Background())
 		go bot.StartPolling(ctx)
 		defer tgCancel()
 		tg = bot
-		log.Info("telegram bot enabled")
+		slog.Info("telegram bot enabled")
 	}
 
 	// Handlers
@@ -264,7 +291,7 @@ func main() {
 
 	// Recover stuck issues from previous run
 	if recovered := sched.RecoverStuckIssues(); recovered > 0 {
-		log.Infof("startup: recovered %d stuck issues", recovered)
+		slog.Info("startup: recovered stuck issues", "count", recovered)
 	}
 
 	// Heartbeat loop
@@ -279,9 +306,10 @@ func main() {
 	}
 
 	go func() {
-		log.Infof("secondorder running at http://localhost:%s", port)
+		slog.Info("secondorder running", "url", "http://localhost:"+port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.WithError(err).Fatal("http server error")
+			slog.Error("http server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -289,7 +317,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Info("shutting down...")
+	slog.Info("shutting down...")
 
 	sse.Close()
 	sched.Stop()
@@ -297,11 +325,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.WithError(err).Error("http shutdown error")
+		slog.Error("http shutdown error", "error", err)
 	}
 
 	database.Close()
-	log.Info("shutdown complete")
+	slog.Info("shutdown complete")
 }
 
 func resolveRunner(model string) string {
@@ -317,13 +345,13 @@ func resolveRunner(model string) string {
 
 func applyStartupTemplate(database *db.DB, templateName, defaultModel string) {
 	if templateName == "blank" {
-		log.Info("startup: blank template selected, skipping agent seeding")
+		slog.Info("startup: blank template selected, skipping agent seeding")
 		return
 	}
 
 	agents, err := database.ListAgents()
 	if err != nil {
-		log.WithError(err).Error("failed to check agents table")
+		slog.Error("failed to check agents table", "error", err)
 		return
 	}
 	if len(agents) > 0 {
@@ -332,7 +360,7 @@ func applyStartupTemplate(database *db.DB, templateName, defaultModel string) {
 
 	data, err := startupTemplatesFS.ReadFile("templates/" + templateName + ".json")
 	if err != nil {
-		log.WithError(err).Warn("startup template not found, skipping")
+		slog.Warn("startup template not found, skipping", "error", err)
 		return
 	}
 
@@ -348,11 +376,11 @@ func applyStartupTemplate(database *db.DB, templateName, defaultModel string) {
 		} `json:"agents"`
 	}
 	if err := json.Unmarshal(data, &tmpl); err != nil {
-		log.WithError(err).Error("failed to parse startup template")
+		slog.Error("failed to parse startup template", "error", err)
 		return
 	}
 
-	log.Infof("applying org template: %s (%d agents)", tmpl.Name, len(tmpl.Agents))
+	slog.Info("applying org template", "template", tmpl.Name, "agents", len(tmpl.Agents))
 
 	runner := resolveRunner(defaultModel)
 
@@ -380,10 +408,10 @@ func applyStartupTemplate(database *db.DB, templateName, defaultModel string) {
 			UpdatedAt:        time.Now(),
 		}
 		if err := database.CreateAgent(agent); err != nil {
-			log.WithError(err).Errorf("failed to create agent: %s", a.Name)
+			slog.Error("failed to create agent", "agent", a.Name, "error", err)
 			continue
 		}
-		log.Infof("created agent: %s (slug=%s, archetype=%s, model=%s)", a.Name, a.Slug, a.ArchetypeSlug, a.Model)
+		slog.Info("created agent", "name", a.Name, "slug", a.Slug, "archetype", a.ArchetypeSlug, "model", a.Model)
 	}
 }
 
