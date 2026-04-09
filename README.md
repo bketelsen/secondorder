@@ -274,6 +274,9 @@ WORKSPACE=~/projects/myapp docker compose up
 - **API keys over JWT.** Per-run provisioned keys, SHA256-hashed. Simple for agent auth.
 - **Budget enforcement at scheduler level.** Checked before every dispatch, not after the bill arrives.
 
+
+[![RepoStars](https://repostars.dev/api/embed?repo=msoedov%2Fsecondorder&theme=sakura)](https://repostars.dev/?repos=msoedov%2Fsecondorder&theme=sakura)
+
 ## License
 
 MIT
