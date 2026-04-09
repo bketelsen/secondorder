@@ -1,8 +1,8 @@
 # Secondorder
 
-Run a zero-human company. Single binary, zero dependencies, deploys in 2 seconds.
+Run a zero-human company. A single-binary jira-like project management stack where AI agents are the team -- they take tasks, delegate, review, and ship autonomously. It's like a CEO simulator, but the company actually ships code
 
-Assign work to AI agents, enforce budgets, monitor execution, review outputs -- one dashboard to run an entire AI-native org.
+Zero dependencies, deploys in 1 second.
 
 ```bash
 go run ./cmd/secondorder
