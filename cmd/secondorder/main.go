@@ -37,7 +37,7 @@ func main() {
 	logLevel := new(slog.LevelVar)
 	logLevel.Set(slog.LevelWarn)
 	slog.SetDefault(slog.New(tint.NewHandler(os.Stderr, &tint.Options{
-		TimeFormat: time.DateTime,
+		TimeFormat: time.TimeOnly,
 		Level:      logLevel,
 	})))
 
