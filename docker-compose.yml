@@ -20,6 +20,8 @@ services:
       - TEMPLATE=${TEMPLATE:-startup}
       - MODEL=${MODEL:-claude}
       - VERBOSITY=${VERBOSITY:-}
+      # Custom team templates directory (overrides built-in templates)
+      # - TEAM_TEMPLATES=${TEAM_TEMPLATES:-}
       # API keys (alternative to file-based OAuth)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
