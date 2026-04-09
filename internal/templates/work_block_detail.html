@@ -201,7 +201,7 @@
               <dt class="text-ink3/50">Total Cost</dt>
               <dd class="text-ink tabular-nums">{{formatCost .Stats.TotalCost}}</dd>
             </div>
-            {{if gt .Stats.CycleTimeHours 0}}
+            {{if gt .Stats.CycleTimeHours 0.0}}
             <div class="flex justify-between">
               <dt class="text-ink3/50">Active Time</dt>
               <dd class="text-ink tabular-nums">{{printf "%.1f" .Stats.CycleTimeHours}}h</dd>
