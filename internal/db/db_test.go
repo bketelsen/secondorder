@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,9 +16,18 @@ import (
 
 func testDB(t *testing.T) *DB {
 	t.Helper()
-	dir := t.TempDir()
-	path := filepath.Join(dir, "test.db")
+	path := fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name())
 	d, err := Open(path)
+	if err != nil {
+		t.Fatalf("open test db: %v", err)
+	}
+	t.Cleanup(func() { d.Close() })
+	return d
+}
+
+func testFileDB(t *testing.T) *DB {
+	t.Helper()
+	d, err := Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
@@ -40,7 +50,7 @@ func TestOpenSQLiteConnectionPoolIsSingleConnection(t *testing.T) {
 }
 
 func TestOpenConfiguresBusyTimeoutPragma(t *testing.T) {
-	d := testDB(t)
+	d := testFileDB(t)
 
 	var timeout int
 	if err := d.DB.QueryRow("PRAGMA busy_timeout").Scan(&timeout); err != nil {
@@ -52,7 +62,7 @@ func TestOpenConfiguresBusyTimeoutPragma(t *testing.T) {
 }
 
 func TestOpenConfiguresJournalModeWAL(t *testing.T) {
-	d := testDB(t)
+	d := testFileDB(t)
 
 	var mode string
 	if err := d.DB.QueryRow("PRAGMA journal_mode").Scan(&mode); err != nil {

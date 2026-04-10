@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -22,8 +21,7 @@ import (
 
 func testDB(t *testing.T) *db.DB {
 	t.Helper()
-	dir := t.TempDir()
-	d, err := db.Open(filepath.Join(dir, "test.db"))
+	d, err := db.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

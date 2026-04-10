@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,7 @@ func makeStub(t *testing.T, dir, name string) {
 
 func testDB(t *testing.T) *db.DB {
 	t.Helper()
-	d, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	d, err := db.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

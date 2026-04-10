@@ -1,7 +1,7 @@
 package main
 
 import (
-	"path/filepath"
+	"fmt"
 	"testing"
 
 	"github.com/msoedov/secondorder/internal/db"
@@ -9,7 +9,7 @@ import (
 )
 
 func TestApplyStartupTemplateUsesDefaultAgentTimeout(t *testing.T) {
-	database, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	database, err := db.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

@@ -1,16 +1,14 @@
 package db_test
 
 import (
+	"fmt"
 	"testing"
-	"os"
-	"path/filepath"
 
 	"github.com/msoedov/secondorder/internal/db"
 )
 
 func TestSupermemoryEventsRoundtrip(t *testing.T) {
-	dir := t.TempDir()
-	d, err := db.Open(filepath.Join(dir, "test.db"))
+	d, err := db.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +78,3 @@ func TestSupermemoryEventsRoundtrip(t *testing.T) {
 	}
 }
 
-func init() {
-	os.Stderr.WriteString("") // suppress unused import
-}

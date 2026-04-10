@@ -28,7 +28,17 @@ const (
 )
 
 func Open(path string) (*DB, error) {
-	dsn := fmt.Sprintf("%s?_journal_mode=WAL&_busy_timeout=%d&_foreign_keys=on&_loc=UTC", path, sqliteBusyTimeout)
+	inMemory := path == ":memory:" || strings.Contains(path, "mode=memory")
+
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	params := fmt.Sprintf("_busy_timeout=%d&_foreign_keys=on&_loc=UTC", sqliteBusyTimeout)
+	if !inMemory {
+		params = "_journal_mode=WAL&" + params
+	}
+	dsn := path + sep + params
 
 	// Write connection pool: low concurrency, serialized by wmu
 	sqlDB, err := sql.Open("sqlite", dsn)
@@ -38,9 +48,11 @@ func Open(path string) (*DB, error) {
 	sqlDB.SetMaxOpenConns(sqliteMaxOpenConns)
 	sqlDB.SetMaxIdleConns(sqliteMaxOpenConns)
 
-	if err := applySQLitePragmas(sqlDB); err != nil {
-		sqlDB.Close()
-		return nil, fmt.Errorf("configure sqlite pragmas: %w", err)
+	if !inMemory {
+		if err := applySQLitePragmas(sqlDB); err != nil {
+			sqlDB.Close()
+			return nil, fmt.Errorf("configure sqlite pragmas: %w", err)
+		}
 	}
 
 	// Read connection pool: high concurrency, WAL allows parallel reads

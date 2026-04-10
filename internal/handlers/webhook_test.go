@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -390,8 +389,7 @@ func TestRateLimiting(t *testing.T) {
 
 func testWebhookDB(t *testing.T) *db.DB {
 	t.Helper()
-	dir := t.TempDir()
-	d, err := db.Open(filepath.Join(dir, "test_webhook.db"))
+	d, err := db.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", t.Name()))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
