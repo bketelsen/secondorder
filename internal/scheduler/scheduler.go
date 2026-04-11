@@ -216,6 +216,8 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			cancel()
 		}()
 
+		promptChars := len(prompt)
+		approxTokens := promptChars / 4
 		logAttrs := []any{
 			"agent", agent.Name,
 			"archetype", agent.ArchetypeSlug,
@@ -226,6 +228,8 @@ func (s *Scheduler) spawnAgent(agent *models.Agent, issueKey, mode, prompt strin
 			"issue_key", issueKey,
 			"timeout_sec", agent.TimeoutSec,
 			"working_dir", agent.WorkingDir,
+			"prompt_chars", promptChars,
+			"prompt_approx_tokens", approxTokens,
 		}
 		slog.Info("scheduler: spawning agent", logAttrs...)
 
