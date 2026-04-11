@@ -1,6 +1,7 @@
 package templates
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"html/template"
@@ -10,6 +11,9 @@ import (
 	"time"
 
 	"github.com/msoedov/secondorder/internal/models"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 //go:embed *.html
@@ -511,121 +515,21 @@ func nl2br(s string) template.HTML {
 	return template.HTML(strings.ReplaceAll(template.HTMLEscapeString(s), "\n", "<br>"))
 }
 
+var wikiMD = goldmark.New(
+	goldmark.WithExtensions(extension.GFM),
+	goldmark.WithRendererOptions(html.WithHardWraps()),
+)
+
 func wikiMarkdown(input string) template.HTML {
-	s := strings.ReplaceAll(input, "\r\n", "\n")
-	s = strings.TrimSpace(s)
+	s := strings.TrimSpace(input)
 	if s == "" {
 		return template.HTML(`<p class="text-ink3/60">No content yet.</p>`)
 	}
-
-	lines := strings.Split(template.HTMLEscapeString(s), "\n")
-	var b strings.Builder
-	inCode := false
-	inList := false
-	inPara := false
-
-	closePara := func() {
-		if inPara {
-			b.WriteString("</p>")
-			inPara = false
-		}
+	var buf bytes.Buffer
+	if err := wikiMD.Convert([]byte(s), &buf); err != nil {
+		return template.HTML(`<p class="text-red-400">Render error.</p>`)
 	}
-	closeList := func() {
-		if inList {
-			b.WriteString("</ul>")
-			inList = false
-		}
-	}
-
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-
-		if strings.HasPrefix(trimmed, "```") {
-			closePara()
-			closeList()
-			if inCode {
-				b.WriteString("</code></pre>")
-				inCode = false
-			} else {
-				b.WriteString(`<pre class="rounded-md p-3 overflow-x-auto"><code>`)
-				inCode = true
-			}
-			continue
-		}
-
-		if inCode {
-			b.WriteString(line)
-			b.WriteString("\n")
-			continue
-		}
-
-		if trimmed == "" {
-			closePara()
-			closeList()
-			continue
-		}
-
-		if strings.HasPrefix(trimmed, "### ") {
-			closePara()
-			closeList()
-			b.WriteString(`<h3 class="text-lg font-semibold mt-4 mb-2">` + formatWikiInline(strings.TrimSpace(trimmed[4:])) + `</h3>`)
-			continue
-		}
-		if strings.HasPrefix(trimmed, "## ") {
-			closePara()
-			closeList()
-			b.WriteString(`<h2 class="text-xl font-semibold mt-5 mb-2">` + formatWikiInline(strings.TrimSpace(trimmed[3:])) + `</h2>`)
-			continue
-		}
-		if strings.HasPrefix(trimmed, "# ") {
-			closePara()
-			closeList()
-			b.WriteString(`<h1 class="text-2xl font-semibold mt-5 mb-3">` + formatWikiInline(strings.TrimSpace(trimmed[2:])) + `</h1>`)
-			continue
-		}
-
-		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
-			closePara()
-			if !inList {
-				b.WriteString(`<ul class="list-disc pl-6 my-3 space-y-1">`)
-				inList = true
-			}
-			b.WriteString("<li>" + formatWikiInline(strings.TrimSpace(trimmed[2:])) + "</li>")
-			continue
-		}
-
-		closeList()
-		if !inPara {
-			b.WriteString("<p>")
-			inPara = true
-		} else {
-			b.WriteString("<br>")
-		}
-		b.WriteString(formatWikiInline(trimmed))
-	}
-
-	closePara()
-	closeList()
-	if inCode {
-		b.WriteString("</code></pre>")
-	}
-
-	return template.HTML(b.String())
-}
-
-var (
-	wikiCodeRe   = regexp.MustCompile("`([^`]+)`")
-	wikiBoldRe   = regexp.MustCompile(`\*\*([^*]+)\*\*`)
-	wikiLinkRe   = regexp.MustCompile(`\[([^\]]+)\]\((https?://[^\s)]+)\)`)
-	wikiItalicRe = regexp.MustCompile(`\*([^*]+)\*`)
-)
-
-func formatWikiInline(s string) string {
-	s = wikiLinkRe.ReplaceAllString(s, `<a href="$2" target="_blank" rel="noopener noreferrer" class="text-ac-t hover:underline">$1</a>`)
-	s = wikiBoldRe.ReplaceAllString(s, `<strong>$1</strong>`)
-	s = wikiItalicRe.ReplaceAllString(s, `<em>$1</em>`)
-	s = wikiCodeRe.ReplaceAllString(s, `<code class="px-1 py-0.5 rounded bg-sf text-[0.9em]">$1</code>`)
-	return s
+	return template.HTML(buf.String())
 }
 
 // projectRe matches conventional-commit scope "verb(scope):" or bare "scope:" at start of title.

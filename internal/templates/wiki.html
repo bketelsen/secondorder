@@ -87,7 +87,7 @@
     {{end}}
 
     <div class="bg-card border border-bd rounded-lg p-5">
-      <article class="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-strong:text-ink prose-code:text-ink prose-pre:bg-code prose-pre:text-ink prose-li:text-ink">
+      <article id="wiki-content" class="prose prose-sm max-w-none prose-headings:text-ink prose-p:text-ink prose-strong:text-ink prose-code:text-ink prose-pre:bg-code prose-pre:text-ink prose-li:text-ink prose-table:text-ink prose-a:text-ac-t">
         {{wikiMarkdown .Page.Content}}
       </article>
     </div>
@@ -97,6 +97,14 @@
     </div>
   </div>
 </main>
+<script>
+(function() {
+  if (typeof hljs === 'undefined') return;
+  document.querySelectorAll('#wiki-content pre code').forEach(function(block) {
+    hljs.highlightElement(block);
+  });
+})();
+</script>
 {{template "foot" .}}
 {{end}}
 
