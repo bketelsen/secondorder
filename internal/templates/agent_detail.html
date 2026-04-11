@@ -111,6 +111,13 @@
           <div class="flex justify-between"><span class="text-ink3/50">Chrome</span>
             {{if .Agent.ChromeEnabled}}<span class="text-blue-400">on</span>{{else}}<span class="text-ink3/40">off</span>{{end}}
           </div>
+          <div class="flex justify-between"><span class="text-ink3/50">Disable Slash Cmds</span>
+            {{if .Agent.DisableSlashCommands}}<span class="text-red-400">on</span>{{else}}<span class="text-ink3/40">off</span>{{end}}
+          </div>
+          <div class="flex justify-between"><span class="text-ink3/50">Disable Skills</span>
+            {{if .Agent.DisableSkills}}<span class="text-red-400">on</span>{{else}}<span class="text-ink3/40">off</span>{{end}}
+          </div>
+          {{if .Agent.DisallowedTools}}<div class="flex justify-between gap-2"><span class="text-ink3/50 shrink-0">Disallowed Tools</span><span class="text-ink2 font-mono truncate" title="{{join .Agent.DisallowedTools ", "}}">{{join .Agent.DisallowedTools ", "}}</span></div>{{end}}
         </div>
 
         {{if .Agent.HeartbeatEnabled}}
@@ -166,9 +173,15 @@
                 <input name="timeout_sec" type="number" value="{{.Agent.TimeoutSec}}" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
               </div>
             </div>
-            <div class="flex items-center gap-4">
+            <div class="grid grid-cols-2 gap-x-3 gap-y-1.5">
               <label class="flex items-center gap-1.5 text-[11px] text-ink3 cursor-pointer"><input type="checkbox" name="heartbeat_enabled" {{if .Agent.HeartbeatEnabled}}checked{{end}} class="rounded border-bd bg-sf"> Heartbeat</label>
               <label class="flex items-center gap-1.5 text-[11px] text-ink3 cursor-pointer"><input type="checkbox" name="chrome_enabled" {{if .Agent.ChromeEnabled}}checked{{end}} class="rounded border-bd bg-sf"> Chrome</label>
+              <label class="flex items-center gap-1.5 text-[11px] text-ink3 cursor-pointer"><input type="checkbox" name="disable_slash_commands" {{if .Agent.DisableSlashCommands}}checked{{end}} class="rounded border-bd bg-sf"> No Slash</label>
+              <label class="flex items-center gap-1.5 text-[11px] text-ink3 cursor-pointer"><input type="checkbox" name="disable_skills" {{if .Agent.DisableSkills}}checked{{end}} class="rounded border-bd bg-sf"> No Skills</label>
+            </div>
+            <div>
+              <label class="text-[11px] text-ink3/50">Disallowed Tools (comma-separated)</label>
+              <input name="disallowed_tools" type="text" value="{{join .Agent.DisallowedTools ","}}" placeholder="e.g. git,Bash" class="w-full bg-sf border border-bd rounded-md px-2.5 py-1.5 text-xs text-ink outline-none focus:ring-1 focus:ring-ac">
             </div>
             <button type="submit" class="w-full bg-ac hover:bg-ac-h text-white text-xs px-3 py-1.5 rounded-md transition-colors">Save</button>
           </form>

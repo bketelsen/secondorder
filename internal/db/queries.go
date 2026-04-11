@@ -11,6 +11,23 @@ import (
 	"github.com/msoedov/secondorder/internal/models"
 )
 
+// splitCSV splits a comma-separated string into a slice, ignoring empty entries.
+func splitCSV(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := parts[:0]
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func joinCSV(ss []string) string { return strings.Join(ss, ",") }
+
 // --- Agents ---
 
 func (d *DB) CreateAgent(a *models.Agent) error {
@@ -21,42 +38,46 @@ func (d *DB) CreateAgent(a *models.Agent) error {
 	a.CreatedAt = now
 	a.UpdatedAt = now
 	_, err := d.Exec(`INSERT INTO agents (id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
-		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		heartbeat_enabled, heartbeat_cron, chrome_enabled, disable_slash_commands, disable_skills, disallowed_tools, reports_to, review_agent_id, active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ID, a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.Runner, a.ApiKeyEnv, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
-		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.ReportsTo, a.ReviewAgentID, a.Active, a.CreatedAt, a.UpdatedAt)
+		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.DisableSlashCommands, a.DisableSkills, joinCSV(a.DisallowedTools), a.ReportsTo, a.ReviewAgentID, a.Active, a.CreatedAt, a.UpdatedAt)
 	return err
 }
 
 func (d *DB) GetAgent(id string) (*models.Agent, error) {
 	a := &models.Agent{}
+	var disallowedTools string
 	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
-		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
+		heartbeat_enabled, heartbeat_cron, chrome_enabled, disable_slash_commands, disable_skills, disallowed_tools, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE id = ?`, id).Scan(
 		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
-		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
+		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.DisableSlashCommands, &a.DisableSkills, &disallowedTools, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	a.DisallowedTools = splitCSV(disallowedTools)
 	return a, nil
 }
 
 func (d *DB) GetAgentBySlug(slug string) (*models.Agent, error) {
 	a := &models.Agent{}
+	var disallowedTools string
 	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
-		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
+		heartbeat_enabled, heartbeat_cron, chrome_enabled, disable_slash_commands, disable_skills, disallowed_tools, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE slug = ?`, slug).Scan(
 		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
-		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
+		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.DisableSlashCommands, &a.DisableSkills, &disallowedTools, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	a.DisallowedTools = splitCSV(disallowedTools)
 	return a, nil
 }
 
 func (d *DB) ListAgents() ([]models.Agent, error) {
 	rows, err := d.Query(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
-		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
+		heartbeat_enabled, heartbeat_cron, chrome_enabled, disable_slash_commands, disable_skills, disallowed_tools, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents ORDER BY created_at`)
 	if err != nil {
 		return nil, err
@@ -66,10 +87,12 @@ func (d *DB) ListAgents() ([]models.Agent, error) {
 	var agents []models.Agent
 	for rows.Next() {
 		var a models.Agent
+		var disallowedTools string
 		if err := rows.Scan(&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
-			&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt); err != nil {
+			&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.DisableSlashCommands, &a.DisableSkills, &disallowedTools, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
+		a.DisallowedTools = splitCSV(disallowedTools)
 		agents = append(agents, a)
 	}
 	return agents, rows.Err()
@@ -78,23 +101,25 @@ func (d *DB) ListAgents() ([]models.Agent, error) {
 func (d *DB) UpdateAgent(a *models.Agent) error {
 	a.UpdatedAt = time.Now().UTC()
 	_, err := d.Exec(`UPDATE agents SET name=?, slug=?, archetype_slug=?, model=?, runner=?, api_key_env=?, working_dir=?, max_turns=?, timeout_sec=?,
-		heartbeat_enabled=?, heartbeat_cron=?, chrome_enabled=?, reports_to=?, review_agent_id=?, active=?, updated_at=?
+		heartbeat_enabled=?, heartbeat_cron=?, chrome_enabled=?, disable_slash_commands=?, disable_skills=?, disallowed_tools=?, reports_to=?, review_agent_id=?, active=?, updated_at=?
 		WHERE id=?`,
 		a.Name, a.Slug, a.ArchetypeSlug, a.Model, a.Runner, a.ApiKeyEnv, a.WorkingDir, a.MaxTurns, a.TimeoutSec,
-		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.ReportsTo, a.ReviewAgentID, a.Active, a.UpdatedAt, a.ID)
+		a.HeartbeatEnabled, a.HeartbeatCron, a.ChromeEnabled, a.DisableSlashCommands, a.DisableSkills, joinCSV(a.DisallowedTools), a.ReportsTo, a.ReviewAgentID, a.Active, a.UpdatedAt, a.ID)
 	return err
 }
 
 func (d *DB) GetCEOAgent() (*models.Agent, error) {
 	a := &models.Agent{}
+	var disallowedTools string
 	err := d.QueryRow(`SELECT id, name, slug, archetype_slug, model, runner, api_key_env, working_dir, max_turns, timeout_sec,
-		heartbeat_enabled, heartbeat_cron, chrome_enabled, reports_to, review_agent_id, active, created_at, updated_at
+		heartbeat_enabled, heartbeat_cron, chrome_enabled, disable_slash_commands, disable_skills, disallowed_tools, reports_to, review_agent_id, active, created_at, updated_at
 		FROM agents WHERE archetype_slug = 'ceo' LIMIT 1`).Scan(
 		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
-		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
+		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.DisableSlashCommands, &a.DisableSkills, &disallowedTools, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	a.DisallowedTools = splitCSV(disallowedTools)
 	return a, nil
 }
 
@@ -690,19 +715,21 @@ func (d *DB) CreateAPIKey(agentID, runID, keyHash, prefix string, idleTimeout ti
 
 func (d *DB) GetAgentByAPIKey(keyHash string) (*models.Agent, error) {
 	a := &models.Agent{}
+	var disallowedTools string
 	// Key is valid only when: not revoked AND (no expiry set OR expiry is in the future).
 	// Session-scoped keys always have expires_at set; legacy keys without it remain valid.
 	err := d.QueryRow(`SELECT a.id, a.name, a.slug, a.archetype_slug, a.model, a.runner, a.api_key_env, a.working_dir, a.max_turns, a.timeout_sec,
-		a.heartbeat_enabled, a.heartbeat_cron, a.chrome_enabled, a.reports_to, a.review_agent_id, a.active, a.created_at, a.updated_at
+		a.heartbeat_enabled, a.heartbeat_cron, a.chrome_enabled, a.disable_slash_commands, a.disable_skills, a.disallowed_tools, a.reports_to, a.review_agent_id, a.active, a.created_at, a.updated_at
 		FROM api_keys k JOIN agents a ON k.agent_id = a.id
 		WHERE k.key_hash=?
 		  AND k.revoked_at IS NULL
 		  AND (k.expires_at IS NULL OR k.expires_at > datetime('now'))`, keyHash).Scan(
 		&a.ID, &a.Name, &a.Slug, &a.ArchetypeSlug, &a.Model, &a.Runner, &a.ApiKeyEnv, &a.WorkingDir, &a.MaxTurns, &a.TimeoutSec,
-		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
+		&a.HeartbeatEnabled, &a.HeartbeatCron, &a.ChromeEnabled, &a.DisableSlashCommands, &a.DisableSkills, &disallowedTools, &a.ReportsTo, &a.ReviewAgentID, &a.Active, &a.CreatedAt, &a.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
+	a.DisallowedTools = splitCSV(disallowedTools)
 	return a, nil
 }
 

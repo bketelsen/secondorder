@@ -49,6 +49,20 @@ func NewUI(database *db.DB, sse *SSEHub, tmpl *template.Template, wake func(*mod
 	return &UI{db: database, sse: sse, tmpl: tmpl, wake: wake, sched: sched}
 }
 
+func parseTools(s string) []string {
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	out := parts[:0]
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 func (u *UI) Dashboard(w http.ResponseWriter, r *http.Request) {
 	var (
 		stats         *models.DashboardStats
@@ -742,6 +756,9 @@ func (u *UI) createAgentUI(w http.ResponseWriter, r *http.Request) {
 	}
 	agent.HeartbeatEnabled = r.FormValue("heartbeat_enabled") == "on"
 	agent.ChromeEnabled = r.FormValue("chrome_enabled") == "on"
+	agent.DisableSlashCommands = r.FormValue("disable_slash_commands") == "on"
+	agent.DisableSkills = r.FormValue("disable_skills") == "on"
+	agent.DisallowedTools = parseTools(r.FormValue("disallowed_tools"))
 
 	u.db.CreateAgent(agent)
 
@@ -823,6 +840,9 @@ func (u *UI) updateAgentUI(w http.ResponseWriter, r *http.Request, slug string) 
 	}
 	agent.HeartbeatEnabled = r.FormValue("heartbeat_enabled") == "on"
 	agent.ChromeEnabled = r.FormValue("chrome_enabled") == "on"
+	agent.DisableSlashCommands = r.FormValue("disable_slash_commands") == "on"
+	agent.DisableSkills = r.FormValue("disable_skills") == "on"
+	agent.DisallowedTools = parseTools(r.FormValue("disallowed_tools"))
 	agent.Active = r.FormValue("active") != "off"
 
 	u.db.UpdateAgent(agent)

@@ -138,7 +138,10 @@ type Agent struct {
 	TimeoutSec       int       `json:"timeout_sec"`
 	HeartbeatEnabled bool      `json:"heartbeat_enabled"`
 	HeartbeatCron    string    `json:"heartbeat_cron"`
-	ChromeEnabled    bool      `json:"chrome_enabled"`
+	ChromeEnabled        bool      `json:"chrome_enabled"`
+	DisableSlashCommands bool      `json:"disable_slash_commands"`
+	DisableSkills        bool      `json:"disable_skills"`
+	DisallowedTools      []string  `json:"disallowed_tools"`
 	ReportsTo        *string   `json:"reports_to"`
 	ReviewAgentID    *string   `json:"review_agent_id"`
 	Active           bool      `json:"active"`

@@ -383,6 +383,16 @@ func (s *Scheduler) execClaudeCode(ctx context.Context, agent *models.Agent, api
 		args = append(args, "--chrome")
 	}
 
+	if agent.DisableSlashCommands || agent.DisableSkills {
+		args = append(args, "--disable-slash-commands")
+	}
+
+	for _, tool := range agent.DisallowedTools {
+		if tool != "" {
+			args = append(args, "--disallowedTools", tool)
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	slog.Debug("scheduler: exec", "run_id", runID, "cmd", cmd.String())
 	cmd.Dir = agent.WorkingDir

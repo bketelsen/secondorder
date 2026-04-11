@@ -98,7 +98,8 @@ var funcMap = template.FuncMap{
 		}
 		return s
 	},
-	"seq": seq,
+	"join": strings.Join,
+	"seq":  seq,
 	"add": func(a, b any) int {
 		var av, bv int64
 		switch v := a.(type) {
