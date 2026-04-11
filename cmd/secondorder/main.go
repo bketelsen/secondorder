@@ -469,8 +469,11 @@ func applyStartupTemplate(database *db.DB, templateName, defaultModel, teamTempl
 			Model            string `json:"model"`
 			Runner           string `json:"runner"`
 			WorkingDir       string `json:"working_dir"`
-			HeartbeatEnabled bool   `json:"heartbeat_enabled"`
-			ChromeEnabled    bool   `json:"chrome_enabled"`
+			HeartbeatEnabled     bool     `json:"heartbeat_enabled"`
+			ChromeEnabled        bool     `json:"chrome_enabled"`
+			DisableSlashCommands bool     `json:"disable_slash_commands"`
+			DisableSkills        bool     `json:"disable_skills"`
+			DisallowedTools      []string `json:"disallowed_tools"`
 		} `json:"agents"`
 	}
 	if err := json.Unmarshal(data, &tmpl); err != nil {
@@ -508,9 +511,12 @@ func applyStartupTemplate(database *db.DB, templateName, defaultModel, teamTempl
 			WorkingDir:       agentWorkingDir,
 			MaxTurns:         50,
 			TimeoutSec:       models.DefaultAgentTimeoutSec,
-			HeartbeatEnabled: a.HeartbeatEnabled,
-			ChromeEnabled:    a.ChromeEnabled,
-			Active:           true,
+			HeartbeatEnabled:     a.HeartbeatEnabled,
+			ChromeEnabled:        a.ChromeEnabled,
+			DisableSlashCommands: a.DisableSlashCommands,
+			DisableSkills:        a.DisableSkills,
+			DisallowedTools:      a.DisallowedTools,
+			Active:               true,
 			CreatedAt:        time.Now(),
 			UpdatedAt:        time.Now(),
 		}
