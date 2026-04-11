@@ -15,8 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"log/slog"
+
+	"github.com/google/uuid"
 
 	"github.com/lmittmann/tint"
 	"github.com/msoedov/secondorder/internal/archetypes"
@@ -131,7 +132,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	models.DiscoverOpenCodeModels()
+	go models.DiscoverOpenCodeModels()
 
 	// SSE hub
 	sse := handlers.NewSSEHub()
